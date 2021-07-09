@@ -35,7 +35,7 @@ func runReport(r Runner) {
 		return
 	}
 
-	dryRun := getDryRun()
+	dryRun := isDryRun()
 	if err := r.Run(dryRun); err != nil {
 		log.Printf("Run error: %v", err)
 		return
@@ -49,7 +49,7 @@ func runReport(r Runner) {
 	}
 }
 
-func getDryRun() bool {
+func isDryRun() bool {
 	dryRun, err := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 	if err != nil {
 		return true

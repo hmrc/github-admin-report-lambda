@@ -2,11 +2,11 @@
 
 This lambda runs the github-admin-tool in report mode.
 
-It creates an image with the tool from https://github.com/hmrc/github-admin-tool.
-
-## License
+It creates an image with the tool from [here]("https://github.com/hmrc/github-admin-tool").
 
 Currently there is a manual process to push the image up to sandbox or prod.
+
+## License
 
 This code is open source software licensed under the [Apache 2.0 License]("http://www.apache.org/licenses/LICENSE-2.0.html").
 
