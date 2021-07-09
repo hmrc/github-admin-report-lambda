@@ -41,7 +41,6 @@ func runReport(r Runner) {
 		return
 	}
 
-	// Store
 	if !dryRun {
 		if err := r.Store(session); err != nil {
 			log.Printf("Store error: %v", err)
