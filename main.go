@@ -21,14 +21,14 @@ func main() {
 }
 
 func HandleLambdaEvent() {
-	var r RealRunner
-	runReport(r)
+	session := session.Must(session.NewSession())
+	runReport(session, &RealRunner{
+		uploader: &realUploader{},
+	})
 }
 
-func runReport(r Runner) {
+func runReport(session *session.Session, r Runner) {
 	log.SetFlags(0)
-
-	session := session.Must(session.NewSession())
 
 	if err := r.Setup(session); err != nil {
 		log.Printf("Setup error: %v", err)
@@ -62,7 +62,10 @@ type Runner interface {
 	Run(bool) error
 	Store(*session.Session) error
 }
-type RealRunner struct{}
+
+type RealRunner struct {
+	uploader uploader
+}
 
 func (r RealRunner) Setup(session *session.Session) error {
 	svc := ssm.New(session)
@@ -101,17 +104,15 @@ func (r RealRunner) Store(session *session.Session) error {
 		return errors.New("bucket name not set")
 	}
 
-	uploader := s3manager.NewUploader(session)
 	filename := "report.csv"
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)
 	}
-
 	t := time.Now()
 	objectName := fmt.Sprintf("%s-%s", filename, t.Format(time.RFC3339))
 
-	result, err := uploader.Upload(&s3manager.UploadInput{
+	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectName),
 		Body:   f,
@@ -124,4 +125,14 @@ func (r RealRunner) Store(session *session.Session) error {
 	log.Printf("file uploaded to %v", result.Location)
 
 	return nil
+}
+
+type uploader interface {
+	upload(*session.Session, *s3manager.UploadInput) (*s3manager.UploadOutput, error)
+}
+
+type realUploader struct{}
+
+func (r realUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+	return s3manager.NewUploader(session).Upload(artefact)
 }

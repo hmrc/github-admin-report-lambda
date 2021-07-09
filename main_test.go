@@ -84,6 +84,7 @@ func (r TestRunner) Store(*session.Session) error {
 
 func Test_runReport(t *testing.T) {
 	type args struct {
+		s *session.Session
 		r Runner
 	}
 	tests := []struct {
@@ -94,13 +95,13 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport success",
 			args: args{
-				TestRunner{},
+				r: TestRunner{},
 			},
 		},
 		{
 			name: "runReport set failure",
 			args: args{
-				TestRunner{
+				r: TestRunner{
 					setupFail: true,
 				},
 			},
@@ -109,7 +110,7 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport run failure",
 			args: args{
-				TestRunner{
+				r: TestRunner{
 					runFail: true,
 				},
 			},
@@ -124,7 +125,7 @@ func Test_runReport(t *testing.T) {
 
 			defer func() { log.SetOutput(os.Stderr) }()
 
-			runReport(tt.args.r)
+			runReport(tt.args.s, tt.args.r)
 
 			if tt.wantLogOutput != strings.TrimSpace(buf.String()) {
 				t.Errorf("runReport() log = \n\n%v, wantLogOutput \n\n%v", buf.String(), tt.wantLogOutput)
