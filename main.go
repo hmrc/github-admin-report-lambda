@@ -41,11 +41,13 @@ func runReport(session *session.Session, r Runner) {
 		return
 	}
 
-	if !dryRun {
-		if err := r.Store(session); err != nil {
-			log.Printf("Store error: %v", err)
-			return
-		}
+	if dryRun {
+		return
+	}
+
+	if err := r.Store(session, "report.csv"); err != nil {
+		log.Printf("Store error: %v", err)
+		return
 	}
 }
 
@@ -60,7 +62,7 @@ func isDryRun() bool {
 type Runner interface {
 	Setup(*session.Session) error
 	Run(bool) error
-	Store(*session.Session) error
+	Store(*session.Session, string) error
 }
 
 type RealRunner struct {
@@ -76,7 +78,6 @@ func (r RealRunner) Setup(session *session.Session) error {
 			Name:           aws.String(ssmPath),
 			WithDecryption: aws.Bool(true),
 		})
-
 	if err != nil {
 		return fmt.Errorf("Get SSM param failed %v", err)
 	}
@@ -98,13 +99,12 @@ func (r RealRunner) Run(dryRun bool) error {
 	return nil
 }
 
-func (r RealRunner) Store(session *session.Session) error {
+func (r RealRunner) Store(session *session.Session, filename string) error {
 	bucketName := os.Getenv("GHTOOL_BUCKET_NAME")
 	if bucketName == "" {
 		return errors.New("bucket name not set")
 	}
 
-	filename := "report.csv"
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)

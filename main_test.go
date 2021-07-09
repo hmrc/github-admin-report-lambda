@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 func Test_isDryRun(t *testing.T) {
@@ -74,7 +76,7 @@ func (r TestRunner) Run(bool) error {
 	return nil
 }
 
-func (r TestRunner) Store(*session.Session) error {
+func (r TestRunner) Store(*session.Session, string) error {
 	if r.storeFail {
 		return errors.New("fail") // nolint // only mock error for test
 	}
@@ -182,15 +184,28 @@ func TestRealRunner_Run(t *testing.T) {
 	}
 }
 
+type testUploader struct {
+	uploadFail bool
+}
+
+func (u testUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+	if u.uploadFail {
+		return nil, errors.New("fail") // nolint // only mock error for test
+	}
+
+	return &s3manager.UploadOutput{Location: "here"}, nil
+}
+
 func TestRealRunner_Store(t *testing.T) {
 	defer os.Setenv("GHTOOL_BUCKET_NAME", os.Getenv("GHTOOL_BUCKET_NAME"))
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
-		session *session.Session
+		session  *session.Session
+		filename string
 	}
 	tests := []struct {
 		name           string
-		r              RealRunner
+		runner         RealRunner
 		args           args
 		wantErr        bool
 		setEnvVar      bool
@@ -210,15 +225,44 @@ func TestRealRunner_Store(t *testing.T) {
 				session: defaultSession,
 			},
 		},
+		{
+			name:           "Fail to upload file",
+			setEnvVar:      true,
+			wantErr:        true,
+			setEnvVarValue: "some-bucket-id",
+			runner:         RealRunner{uploader: &testUploader{uploadFail: true}},
+			args: args{
+				session:  defaultSession,
+				filename: "hello.txt",
+			},
+		},
+		{
+			name:           "Successfully upload hello.txt",
+			setEnvVar:      true,
+			wantErr:        false,
+			setEnvVarValue: "some-bucket-id",
+			runner:         RealRunner{uploader: &testUploader{uploadFail: false}},
+			args: args{
+				session:  defaultSession,
+				filename: "hello.txt",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			filename := tt.args.filename
+			if tt.args.filename != "" {
+				file, err := ioutil.TempFile(t.TempDir(), tt.args.filename)
+				if err != nil {
+					t.Fatalf("cannot create helper file: %v", err)
+				}
+				filename = file.Name()
+			}
 			os.Unsetenv("GHTOOL_BUCKET_NAME")
 			if tt.setEnvVar {
 				os.Setenv("GHTOOL_BUCKET_NAME", tt.setEnvVarValue)
 			}
-			r := RealRunner{}
-			if err := r.Store(tt.args.session); (err != nil) != tt.wantErr {
+			if err := tt.runner.Store(tt.args.session, filename); (err != nil) != tt.wantErr {
 				t.Errorf("RealRunner.Store() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
