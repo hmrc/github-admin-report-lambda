@@ -1,50 +1,50 @@
-# github-admin-tool
+# github-admin-tool-lambda
 
-This is a CLI tool used to audit/report on repositories, update branch protection signing and pr-approval settings for a given organisation.
+This lambda runs the github-admin-tool in report mode.
 
-By default it runs in a dry run mode.  Turn this off by adding `--dry-run=false` to any command.
+It creates an image with the tool from https://github.com/hmrc/github-admin-tool.
 
-## Installation
+Currently there is a manual process to push the image up to sandbox or prod.
 
-```bash
-wget -O- https://github.com/hmrc/github-admin-tool/releases/download/v0.1.1/github-admin-tool_0.1.1_<OS_VERSION>.tar.gz | tar -xzv && chmod 755 github-admin-tool
-```
+## Environment variables
 
-## Config
-
-Please set the following ENV vars or use config.yml.example->config.yaml as file.
-
-github-bearer-token (PAT) should have the following: admin:org, repo, user.
+The following ENV Vars can be passed to the Lambda.
 
 ```bash
-GHTOOL_TOKEN=github-bearer-token
+GHTOOL_PARAM_NAME=name-of-ssm-param-to-be-called
 GHTOOL_ORG=github-org-name
+GHTOOL_DRY_RUN=true-or-false
+GHTOOL_BUCKET_NAME=bucket-name-where-report-to-be-stored
 ```
 
-## Help
+## Develop
 
-As with any cli tool just run the following to see available actions/arguments.
+The lambda can be built and run locally by (this will ask for an MFA token):
 
-`./github-admin-tool -h`
+```bash
+make clean-build-run
+```
 
-## Report
+## Test
 
-Run the following command generate a CSV with respository settings.
+To format and run the go tests:
 
-`./github-admin-tool report`
+```bash
+make test
+```
 
-## Signing
+## Push
 
-Run the following command to turn commit signing on for all branch protection rules for the repos contained in the list.   The list should be a text file with repository names (without owner name) on new lines.
+To tag and push the image to the sandbox account github-admin-report ECR:
 
-If the default branch does not have a protection rule, it will be created.
+```bash
+make push
+```
 
-`./github-admin-tool signing -r repo_list.txt`
+## Push to prod
 
-## PR Approval
+To tag and push the image to the production account github-admin-report ECR:
 
-Run the following command to set pr-approval rules for a given branch name for the repos contained in the list.   The list should be a text file with repository names (without owner name) on new lines.  Check the command line help for different settings.
-
-If the passed in branch does not have a protection rule, it will be created.
-
-`./github-admin-tool pr-approval -r repo_list.txt -b branch_name`
+```bash
+make push-prod
+```
