@@ -20,34 +20,31 @@ func main() {
 	lambda.Start(HandleLambdaEvent)
 }
 
-func HandleLambdaEvent() {
+func HandleLambdaEvent() error {
 	var r RealRunner
-	runReport(r)
+	return runReport(r)
 }
 
-func runReport(r Runner) {
-	log.SetFlags(0)
-
+func runReport(r Runner) error {
 	session := session.Must(session.NewSession())
 
 	if err := r.Setup(session); err != nil {
-		log.Printf("Setup error: %v", err)
-		return
+		return fmt.Errorf("Setup error: %v", err)
 	}
 
 	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 
 	if err := r.Run(dryRun); err != nil {
-		log.Printf("Run error: %v", err)
-		return
+		return fmt.Errorf("Run error: %v", err)
 	}
 
 	if !dryRun {
 		if err := r.Store(session); err != nil {
-			log.Printf("Store error: %v", err)
-			return
+			return fmt.Errorf("Store error: %v", err)
 		}
 	}
+
+	return nil
 }
 
 type Runner interface {
@@ -82,7 +79,6 @@ func (r RealRunner) Run(dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to run, got: %w, output: %s", err, output)
 	}
-	log.SetFlags(0)
 	log.Printf("Output was %s", output)
 
 	return nil

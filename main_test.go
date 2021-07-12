@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"errors"
-	"log"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -46,9 +43,10 @@ func Test_runReport(t *testing.T) {
 		r Runner
 	}
 	tests := []struct {
-		name          string
-		args          args
-		wantLogOutput string
+		name       string
+		args       args
+		wantErr    bool
+		wantErrMsg string
 	}{
 		{
 			name: "runReport success",
@@ -63,7 +61,8 @@ func Test_runReport(t *testing.T) {
 					setupFail: true,
 				},
 			},
-			wantLogOutput: "Setup error: fail",
+			wantErr:    true,
+			wantErrMsg: "Setup error: fail",
 		},
 		{
 			name: "runReport run failure",
@@ -72,21 +71,29 @@ func Test_runReport(t *testing.T) {
 					runFail: true,
 				},
 			},
-			wantLogOutput: "Run error: fail",
+			wantErr:    true,
+			wantErrMsg: "Run error: fail",
+		},
+		{
+			name: "runReport store failure",
+			args: args{
+				TestRunner{
+					storeFail: true,
+				},
+			},
+			wantErr:    true,
+			wantErrMsg: "Store error: fail",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
+			err := runReport(tt.args.r)
 
-			log.SetOutput(&buf)
-
-			defer func() { log.SetOutput(os.Stderr) }()
-
-			runReport(tt.args.r)
-
-			if tt.wantLogOutput != strings.TrimSpace(buf.String()) {
-				t.Errorf("runReport() log = \n\n%v, wantLogOutput \n\n%v", buf.String(), tt.wantLogOutput)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("runReport error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
+				t.Errorf("runReport error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
 			}
 		})
 	}
