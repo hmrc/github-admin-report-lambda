@@ -2,7 +2,11 @@ package main
 
 import (
 	"errors"
+<<<<<<< HEAD
+=======
 	"io/ioutil"
+	"log"
+>>>>>>> uploader-interface
 	"os"
 	"testing"
 
@@ -80,7 +84,7 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport store failure",
 			args: args{
-				r: TestRunner{
+				TestRunner{
 					storeFail: true,
 				},
 			},
@@ -90,13 +94,22 @@ func Test_runReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runReport(tt.args.s, tt.args.r)
+			err := runReport(tt.args.r)
 
+<<<<<<< HEAD
 			if (err != nil) != tt.wantErr {
 				t.Errorf("runReport error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
 				t.Errorf("runReport error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+=======
+			defer func() { log.SetOutput(os.Stderr) }()
+
+			runReport(tt.args.s, tt.args.r)
+
+			if tt.wantLogOutput != strings.TrimSpace(buf.String()) {
+				t.Errorf("runReport() log = \n\n%v, wantLogOutput \n\n%v", buf.String(), tt.wantLogOutput)
+>>>>>>> uploader-interface
 			}
 		})
 	}
@@ -163,7 +176,7 @@ func (u testUploader) upload(session *session.Session, artefact *s3manager.Uploa
 }
 
 func TestRealRunner_Store(t *testing.T) {
-	defer os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
+	defer os.Setenv("GHTOOL_BUCKET_NAME", os.Getenv("GHTOOL_BUCKET_NAME"))
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
 		session  *session.Session
@@ -224,9 +237,9 @@ func TestRealRunner_Store(t *testing.T) {
 				}
 				filename = file.Name()
 			}
-			os.Unsetenv("BUCKET_NAME")
+			os.Unsetenv("GHTOOL_BUCKET_NAME")
 			if tt.setEnvVar {
-				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
+				os.Setenv("GHTOOL_BUCKET_NAME", tt.setEnvVarValue)
 			}
 			if err := tt.runner.Store(tt.args.session, filename); (err != nil) != tt.wantErr {
 				t.Errorf("RealRunner.Store() error = %v, wantErr %v", err, tt.wantErr)

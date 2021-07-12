@@ -20,14 +20,26 @@ func main() {
 	lambda.Start(HandleLambdaEvent)
 }
 
+<<<<<<< HEAD
 func HandleLambdaEvent() error {
+	var r RealRunner
+	return runReport(r)
+}
+
+func runReport(r Runner) error {
 	session := session.Must(session.NewSession())
-	return runReport(session, &RealRunner{
+=======
+func HandleLambdaEvent() {
+	session := session.Must(session.NewSession())
+	runReport(session, &RealRunner{
 		uploader: &realUploader{},
 	})
 }
 
-func runReport(session *session.Session, r Runner) error {
+func runReport(session *session.Session, r Runner) {
+	log.SetFlags(0)
+>>>>>>> uploader-interface
+
 	if err := r.Setup(session); err != nil {
 		return fmt.Errorf("Setup error: %v", err)
 	}
@@ -39,10 +51,19 @@ func runReport(session *session.Session, r Runner) error {
 	}
 
 	if dryRun {
+<<<<<<< HEAD
 		return nil
+=======
+		return
 	}
 
 	if err := r.Store(session, "report.csv"); err != nil {
+		log.Printf("Store error: %v", err)
+		return
+>>>>>>> uploader-interface
+	}
+
+	if err := r.Store(session); err != nil {
 		return fmt.Errorf("Store error: %v", err)
 	}
 
@@ -88,8 +109,13 @@ func (r RealRunner) Run(dryRun bool) error {
 	return nil
 }
 
-func (r RealRunner) Store(session *session.Session, filename string) error {
+<<<<<<< HEAD
+func (r RealRunner) Store(session *session.Session) error {
 	bucketName := os.Getenv("BUCKET_NAME")
+=======
+func (r RealRunner) Store(session *session.Session, filename string) error {
+	bucketName := os.Getenv("GHTOOL_BUCKET_NAME")
+>>>>>>> uploader-interface
 	if bucketName == "" {
 		return errors.New("bucket name not set")
 	}
