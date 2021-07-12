@@ -11,47 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
-func Test_isDryRun(t *testing.T) {
-	defer os.Setenv("GHTOOL_DRY_RUN", os.Getenv("GHTOOL_DRY_RUN"))
-
-	tests := []struct {
-		name           string
-		want           bool
-		setEnvVar      bool
-		setEnvVarValue string
-	}{
-		{
-			name:      "isDryRun returns true with nothing set",
-			want:      true,
-			setEnvVar: false,
-		},
-		{
-			name:           "isDryRun returns true with empty string",
-			want:           true,
-			setEnvVar:      true,
-			setEnvVarValue: "",
-		},
-		{
-			name:           "isDryRun returns false with false string",
-			want:           false,
-			setEnvVar:      true,
-			setEnvVarValue: "false",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv("GHTOOL_DRY_RUN")
-			if tt.setEnvVar {
-				os.Setenv("GHTOOL_DRY_RUN", tt.setEnvVarValue)
-			}
-			got := isDryRun()
-			if got != tt.want {
-				t.Errorf("isDryRun() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 type TestRunner struct {
 	setupFail bool
 	runFail   bool

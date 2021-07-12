@@ -35,7 +35,8 @@ func runReport(r Runner) {
 		return
 	}
 
-	dryRun := isDryRun()
+	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
+
 	if err := r.Run(dryRun); err != nil {
 		log.Printf("Run error: %v", err)
 		return
@@ -49,14 +50,6 @@ func runReport(r Runner) {
 	}
 }
 
-func isDryRun() bool {
-	dryRun, err := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
-	if err != nil {
-		return true
-	}
-	return dryRun
-}
-
 type Runner interface {
 	Setup(*session.Session) error
 	Run(bool) error
@@ -67,7 +60,7 @@ type RealRunner struct{}
 func (r RealRunner) Setup(session *session.Session) error {
 	svc := ssm.New(session)
 
-	ssmPath := os.Getenv("GHTOOL_PARAM_NAME")
+	ssmPath := os.Getenv("TOKEN_PATH")
 	token, err := svc.GetParameter(
 		&ssm.GetParameterInput{
 			Name:           aws.String(ssmPath),
@@ -96,7 +89,7 @@ func (r RealRunner) Run(dryRun bool) error {
 }
 
 func (r RealRunner) Store(session *session.Session) error {
-	bucketName := os.Getenv("GHTOOL_BUCKET_NAME")
+	bucketName := os.Getenv("BUCKET_NAME")
 	if bucketName == "" {
 		return errors.New("bucket name not set")
 	}

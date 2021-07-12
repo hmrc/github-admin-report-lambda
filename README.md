@@ -15,10 +15,10 @@ This code is open source software licensed under the [Apache 2.0 License]("http:
 The following ENV Vars can be passed to the Lambda.
 
 ```bash
-GHTOOL_PARAM_NAME=name-of-ssm-param-to-be-called
+TOKEN_PATH=name-of-ssm-param-to-be-called
 GHTOOL_ORG=github-org-name
 GHTOOL_DRY_RUN=true-or-false
-GHTOOL_BUCKET_NAME=bucket-name-where-report-to-be-stored
+BUCKET_NAME=bucket-name-where-report-to-be-stored
 ```
 
 ## Develop
