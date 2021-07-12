@@ -102,22 +102,6 @@ func Test_runReport(t *testing.T) {
 	}
 }
 
-// This is just for coverage!!
-func TestHandleLambdaEvent(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{
-			name: "HandleLambdaEvent",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			HandleLambdaEvent()
-		})
-	}
-}
-
 func TestRealRunner_Run(t *testing.T) {
 	type args struct {
 		dryRun bool
@@ -230,6 +214,25 @@ func TestRealRunner_Store(t *testing.T) {
 			}
 			if err := tt.runner.Store(tt.args.session, filename); (err != nil) != tt.wantErr {
 				t.Errorf("RealRunner.Store() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestHandleLambdaEvent(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{
+			name:    "HandleLambdaEvent is successful",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := HandleLambdaEvent(); (err != nil) != tt.wantErr {
+				t.Errorf("HandleLambdaEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
