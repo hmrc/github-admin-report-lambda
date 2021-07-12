@@ -38,10 +38,12 @@ func runReport(r Runner) error {
 		return fmt.Errorf("Run error: %v", err)
 	}
 
-	if !dryRun {
-		if err := r.Store(session); err != nil {
-			return fmt.Errorf("Store error: %v", err)
-		}
+	if dryRun {
+		return nil
+	}
+
+	if err := r.Store(session); err != nil {
+		return fmt.Errorf("Store error: %v", err)
 	}
 
 	return nil
