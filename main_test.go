@@ -12,13 +12,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
-type TestRunner struct {
-	setupFail bool
-	runFail   bool
-	storeFail bool
+type testReport struct {
+	setupFail    bool
+	generateFail bool
+	storeFail    bool
 }
 
-func (r TestRunner) Setup(*session.Session) error {
+func (r testReport) setup(*session.Session) error {
 	if r.setupFail {
 		return errors.New("fail") // nolint // only mock error for test
 	}
@@ -26,15 +26,15 @@ func (r TestRunner) Setup(*session.Session) error {
 	return nil
 }
 
-func (r TestRunner) Run(bool) error {
-	if r.runFail {
+func (r testReport) generate(bool) error {
+	if r.generateFail {
 		return errors.New("fail") // nolint // only mock error for test
 	}
 
 	return nil
 }
 
-func (r TestRunner) Store(*session.Session, string) error {
+func (r testReport) store(*session.Session, string) error {
 	if r.storeFail {
 		return errors.New("fail") // nolint // only mock error for test
 	}
@@ -45,7 +45,7 @@ func (r TestRunner) Store(*session.Session, string) error {
 func Test_runReport(t *testing.T) {
 	type args struct {
 		s *session.Session
-		r Runner
+		r reporter
 	}
 	tests := []struct {
 		name       string
@@ -56,13 +56,13 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport success",
 			args: args{
-				r: TestRunner{},
+				r: testReport{},
 			},
 		},
 		{
 			name: "runReport set failure",
 			args: args{
-				r: TestRunner{
+				r: testReport{
 					setupFail: true,
 				},
 			},
@@ -72,8 +72,8 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport run failure",
 			args: args{
-				r: TestRunner{
-					runFail: true,
+				r: testReport{
+					generateFail: true,
 				},
 			},
 			wantErr:    true,
@@ -82,7 +82,7 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport store failure",
 			args: args{
-				r: TestRunner{
+				r: testReport{
 					storeFail: true,
 				},
 			},
@@ -104,13 +104,13 @@ func Test_runReport(t *testing.T) {
 	}
 }
 
-func TestRealRunner_Run(t *testing.T) {
+func TestReport_generate(t *testing.T) {
 	type args struct {
 		dryRun bool
 	}
 	tests := []struct {
 		name       string
-		r          RealRunner
+		r          report
 		args       args
 		wantErr    bool
 		wantErrMsg string
@@ -124,13 +124,13 @@ func TestRealRunner_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := RealRunner{}
-			err := r.Run(tt.args.dryRun)
+			r := report{}
+			err := r.generate(tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("RealRunner.Run() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("report.generate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
-				t.Errorf("RealRunner.Run() error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+				t.Errorf("report.generate() error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
 			}
 		})
 	}
@@ -162,7 +162,7 @@ func (g testSSMService) getParameter(session *session.Session, input *ssm.GetPar
 	return output, nil
 }
 
-func TestRealRunner_Store(t *testing.T) {
+func TestReport_store(t *testing.T) {
 	defer os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
@@ -171,7 +171,7 @@ func TestRealRunner_Store(t *testing.T) {
 	}
 	tests := []struct {
 		name           string
-		runner         RealRunner
+		runner         report
 		args           args
 		wantErr        bool
 		setEnvVar      bool
@@ -196,7 +196,7 @@ func TestRealRunner_Store(t *testing.T) {
 			setEnvVar:      true,
 			wantErr:        true,
 			setEnvVarValue: "some-bucket-id",
-			runner:         RealRunner{uploader: &testUploader{uploadFail: true}},
+			runner:         report{uploader: &testUploader{uploadFail: true}},
 			args: args{
 				session:  defaultSession,
 				filename: "hello.txt",
@@ -207,7 +207,7 @@ func TestRealRunner_Store(t *testing.T) {
 			setEnvVar:      true,
 			wantErr:        false,
 			setEnvVarValue: "some-bucket-id",
-			runner:         RealRunner{uploader: &testUploader{uploadFail: false}},
+			runner:         report{uploader: &testUploader{uploadFail: false}},
 			args: args{
 				session:  defaultSession,
 				filename: "hello.txt",
@@ -228,8 +228,8 @@ func TestRealRunner_Store(t *testing.T) {
 			if tt.setEnvVar {
 				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
 			}
-			if err := tt.runner.Store(tt.args.session, filename); (err != nil) != tt.wantErr {
-				t.Errorf("RealRunner.Store() error = %v, wantErr %v", err, tt.wantErr)
+			if err := tt.runner.store(tt.args.session, filename); (err != nil) != tt.wantErr {
+				t.Errorf("report.store() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -254,12 +254,12 @@ func TestHandleLambdaEvent(t *testing.T) {
 	}
 }
 
-func TestRealRunner_Setup(t *testing.T) {
+func TestReport_setup(t *testing.T) {
 	defer os.Setenv("GHTOOL_TOKEN", os.Getenv("GHTOOL_TOKEN"))
 	defaultSession := session.Must(session.NewSession())
 	type fields struct {
-		uploader   uploader
-		SSMService SSMService
+		uploader        uploader
+		parameterGetter parameterGetter
 	}
 	type args struct {
 		session *session.Session
@@ -273,7 +273,7 @@ func TestRealRunner_Setup(t *testing.T) {
 		{
 			name: "Setup success",
 			fields: fields{
-				SSMService: testSSMService{
+				parameterGetter: testSSMService{
 					getParameterFail: false,
 				},
 			},
@@ -285,7 +285,7 @@ func TestRealRunner_Setup(t *testing.T) {
 		{
 			name: "Setup failed",
 			fields: fields{
-				SSMService: testSSMService{
+				parameterGetter: testSSMService{
 					getParameterFail: true,
 				},
 			},
@@ -297,12 +297,12 @@ func TestRealRunner_Setup(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := RealRunner{
-				uploader:   tt.fields.uploader,
-				SSMService: tt.fields.SSMService,
+			r := report{
+				uploader:        tt.fields.uploader,
+				parameterGetter: tt.fields.parameterGetter,
 			}
-			if err := r.Setup(tt.args.session); (err != nil) != tt.wantErr {
-				t.Errorf("RealRunner.Setup() error = %v, wantErr %v", err, tt.wantErr)
+			if err := r.setup(tt.args.session); (err != nil) != tt.wantErr {
+				t.Errorf("report.setup() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

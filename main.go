@@ -22,20 +22,20 @@ func main() {
 
 func HandleLambdaEvent() error {
 	session := session.Must(session.NewSession())
-	return runReport(session, &RealRunner{
-		uploader:   &realUploader{},
-		SSMService: &realSSMService{},
+	return runReport(session, &report{
+		uploader:        &s3Uploader{},
+		parameterGetter: &ssmService{},
 	})
 }
 
-func runReport(session *session.Session, r Runner) error {
-	if err := r.Setup(session); err != nil {
+func runReport(session *session.Session, r reporter) error {
+	if err := r.setup(session); err != nil {
 		return fmt.Errorf("Setup error: %v", err)
 	}
 
 	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 
-	if err := r.Run(dryRun); err != nil {
+	if err := r.generate(dryRun); err != nil {
 		return fmt.Errorf("Run error: %v", err)
 	}
 
@@ -43,27 +43,27 @@ func runReport(session *session.Session, r Runner) error {
 		return nil
 	}
 
-	if err := r.Store(session, "report.csv"); err != nil {
+	if err := r.store(session, "report.csv"); err != nil {
 		return fmt.Errorf("Store error: %v", err)
 	}
 
 	return nil
 }
 
-type Runner interface {
-	Setup(*session.Session) error
-	Run(bool) error
-	Store(*session.Session, string) error
+type reporter interface {
+	setup(*session.Session) error
+	generate(bool) error
+	store(*session.Session, string) error
 }
 
-type RealRunner struct {
-	uploader   uploader
-	SSMService SSMService
+type report struct {
+	uploader        uploader
+	parameterGetter parameterGetter
 }
 
-func (r RealRunner) Setup(session *session.Session) error {
+func (r report) setup(session *session.Session) error {
 	ssmPath := os.Getenv("TOKEN_PATH")
-	token, err := r.SSMService.getParameter(
+	token, err := r.parameterGetter.getParameter(
 		session,
 		&ssm.GetParameterInput{
 			Name:           aws.String(ssmPath),
@@ -78,7 +78,7 @@ func (r RealRunner) Setup(session *session.Session) error {
 	return nil
 }
 
-func (r RealRunner) Run(dryRun bool) error {
+func (r report) generate(dryRun bool) error {
 	args := []string{"report", fmt.Sprintf("--dry-run=%t", dryRun)}
 	output, err := exec.Command("/github-admin-tool", args...).CombinedOutput()
 	if err != nil {
@@ -89,7 +89,7 @@ func (r RealRunner) Run(dryRun bool) error {
 	return nil
 }
 
-func (r RealRunner) Store(session *session.Session, filename string) error {
+func (r report) store(session *session.Session, filename string) error {
 	bucketName := os.Getenv("BUCKET_NAME")
 	if bucketName == "" {
 		return errors.New("bucket name not set")
@@ -121,18 +121,18 @@ type uploader interface {
 	upload(*session.Session, *s3manager.UploadInput) (*s3manager.UploadOutput, error)
 }
 
-type realUploader struct{}
+type s3Uploader struct{}
 
-func (r realUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+func (s s3Uploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
 	return s3manager.NewUploader(session).Upload(artefact)
 }
 
-type SSMService interface {
+type parameterGetter interface {
 	getParameter(*session.Session, *ssm.GetParameterInput) (*ssm.GetParameterOutput, error)
 }
 
-type realSSMService struct{}
+type ssmService struct{}
 
-func (r realSSMService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
+func (s ssmService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
 	return ssm.New(session).GetParameter(input)
 }
