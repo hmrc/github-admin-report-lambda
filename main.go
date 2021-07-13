@@ -23,7 +23,8 @@ func main() {
 func HandleLambdaEvent() error {
 	session := session.Must(session.NewSession())
 	return runReport(session, &RealRunner{
-		uploader: &realUploader{},
+		uploader:   &realUploader{},
+		SSMService: &realSSMService{},
 	})
 }
 
@@ -56,14 +57,14 @@ type Runner interface {
 }
 
 type RealRunner struct {
-	uploader uploader
+	uploader   uploader
+	SSMService SSMService
 }
 
 func (r RealRunner) Setup(session *session.Session) error {
-	svc := ssm.New(session)
-
 	ssmPath := os.Getenv("TOKEN_PATH")
-	token, err := svc.GetParameter(
+	token, err := r.SSMService.getParameter(
+		session,
 		&ssm.GetParameterInput{
 			Name:           aws.String(ssmPath),
 			WithDecryption: aws.Bool(true),
@@ -124,4 +125,14 @@ type realUploader struct{}
 
 func (r realUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
 	return s3manager.NewUploader(session).Upload(artefact)
+}
+
+type SSMService interface {
+	getParameter(*session.Session, *ssm.GetParameterInput) (*ssm.GetParameterOutput, error)
+}
+
+type realSSMService struct{}
+
+func (r realSSMService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
+	return ssm.New(session).GetParameter(input)
 }

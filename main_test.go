@@ -237,3 +237,32 @@ func TestHandleLambdaEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestRealRunner_Setup(t *testing.T) {
+	type fields struct {
+		uploader   uploader
+		SSMService SSMService
+	}
+	type args struct {
+		session *session.Session
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := RealRunner{
+				uploader:   tt.fields.uploader,
+				SSMService: tt.fields.SSMService,
+			}
+			if err := r.Setup(tt.args.session); (err != nil) != tt.wantErr {
+				t.Errorf("RealRunner.Setup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
