@@ -116,16 +116,23 @@ func TestReport_generate(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:       "Run throws error",
+			name:       "Generate throws error",
+			r:          report{executor: testExecutor{runFail: true}},
 			wantErr:    true,
+			wantErrMsg: "failed to run, got: fail, output: ",
+			args:       args{dryRun: false},
+		},
+		{
+			name:       "Generate report successfully",
+			r:          report{executor: testExecutor{}},
+			wantErr:    false,
 			wantErrMsg: "",
 			args:       args{dryRun: false},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := report{}
-			err := r.generate(tt.args.dryRun)
+			err := tt.r.generate(tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.generate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -160,6 +167,18 @@ func (g testSSMService) getParameter(session *session.Session, input *ssm.GetPar
 	output := new(ssm.GetParameterOutput)
 	output.Parameter = &ssm.Parameter{Value: aws.String("param-value")}
 	return output, nil
+}
+
+type testExecutor struct {
+	runFail bool
+}
+
+func (c testExecutor) run(command string, args ...string) (outout []byte, err error) {
+	if c.runFail {
+		return nil, errors.New("fail") // nolint // only mock error for test
+	}
+
+	return []byte("success"), nil
 }
 
 func TestReport_store(t *testing.T) {

@@ -23,8 +23,9 @@ func main() {
 func HandleLambdaEvent() error {
 	session := session.Must(session.NewSession())
 	return runReport(session, &report{
-		uploader:        &s3Uploader{},
+		executor:        &command{},
 		parameterGetter: &ssmService{},
+		uploader:        &s3Uploader{},
 	})
 }
 
@@ -57,8 +58,9 @@ type reporter interface {
 }
 
 type report struct {
-	uploader        uploader
+	executor        executor
 	parameterGetter parameterGetter
+	uploader        uploader
 }
 
 func (r report) setup(session *session.Session) error {
@@ -80,7 +82,7 @@ func (r report) setup(session *session.Session) error {
 
 func (r report) generate(dryRun bool) error {
 	args := []string{"report", fmt.Sprintf("--dry-run=%t", dryRun)}
-	output, err := exec.Command("/github-admin-tool", args...).CombinedOutput()
+	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
 		return fmt.Errorf("failed to run, got: %w, output: %s", err, output)
 	}
@@ -135,4 +137,14 @@ type ssmService struct{}
 
 func (s ssmService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
 	return ssm.New(session).GetParameter(input)
+}
+
+type executor interface {
+	run(string, ...string) ([]byte, error)
+}
+
+type command struct{}
+
+func (c command) run(command string, args ...string) (outout []byte, err error) {
+	return exec.Command(command, args...).CombinedOutput()
 }
