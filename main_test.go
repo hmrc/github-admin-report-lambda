@@ -6,8 +6,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
 type TestRunner struct {
@@ -146,6 +148,20 @@ func (u testUploader) upload(session *session.Session, artefact *s3manager.Uploa
 	return &s3manager.UploadOutput{Location: "here"}, nil
 }
 
+type testSSMService struct {
+	getParameterFail bool
+}
+
+func (g testSSMService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
+	if g.getParameterFail {
+		return nil, errors.New("fail") // nolint // only mock error for test
+	}
+
+	output := new(ssm.GetParameterOutput)
+	output.Parameter = &ssm.Parameter{Value: aws.String("param-value")}
+	return output, nil
+}
+
 func TestRealRunner_Store(t *testing.T) {
 	defer os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
 	defaultSession := session.Must(session.NewSession())
@@ -239,6 +255,8 @@ func TestHandleLambdaEvent(t *testing.T) {
 }
 
 func TestRealRunner_Setup(t *testing.T) {
+	defer os.Setenv("GHTOOL_TOKEN", os.Getenv("GHTOOL_TOKEN"))
+	defaultSession := session.Must(session.NewSession())
 	type fields struct {
 		uploader   uploader
 		SSMService SSMService
@@ -252,7 +270,30 @@ func TestRealRunner_Setup(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Setup success",
+			fields: fields{
+				SSMService: testSSMService{
+					getParameterFail: false,
+				},
+			},
+			args: args{
+				session: defaultSession,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Setup failed",
+			fields: fields{
+				SSMService: testSSMService{
+					getParameterFail: true,
+				},
+			},
+			args: args{
+				session: defaultSession,
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
