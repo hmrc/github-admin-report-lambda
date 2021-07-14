@@ -66,11 +66,10 @@ func (r *report) setup(session *session.Session) error {
 		return errors.New("bucket name not set")
 	}
 
-	ssmPath := os.Getenv("TOKEN_PATH")
 	token, err := r.parameterGetter.getParameter(
 		session,
 		&ssm.GetParameterInput{
-			Name:           aws.String(ssmPath),
+			Name:           aws.String(os.Getenv("TOKEN_PATH")),
 			WithDecryption: aws.Bool(true),
 		})
 	if err != nil {
@@ -102,8 +101,8 @@ func (r report) store(session *session.Session, filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)
 	}
-	t := time.Now()
-	objectName := fmt.Sprintf("%s-%s", filename, t.Format(time.RFC3339))
+
+	objectName := fmt.Sprintf("%s-%s", filename, time.Now().Format(time.RFC3339))
 
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(r.bucketName),
