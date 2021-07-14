@@ -21,17 +21,24 @@ func Test_runReport(t *testing.T) {
 		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
 			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
 		}
+
+		if _, exists := os.LookupEnv("GHTOOL_DRY_RUN"); exists {
+			os.Setenv("GHTOOL_DRY_RUN", os.Getenv("GHTOOL_DRY_RUN"))
+		}
 	}()
 	os.Setenv("BUCKET_NAME", "some-bucket-name")
+	os.Setenv("GHTOOL_DRY_RUN", "false")
+
 	type args struct {
 		s *session.Session
 		r report
 	}
 	tests := []struct {
-		name       string
-		args       args
-		wantErr    bool
-		wantErrMsg string
+		name          string
+		args          args
+		wantErr       bool
+		wantErrMsg    string
+		setDryRunTrue bool
 	}{
 		{
 			name: "runReport success",
@@ -68,6 +75,18 @@ func Test_runReport(t *testing.T) {
 			wantErrMsg: "Run error: failed to run, got: fail, output: nothing",
 		},
 		{
+			name: "runReport dry run exit",
+			args: args{
+				r: report{
+					executor:        testExecutor{},
+					parameterGetter: testParameterGetter{},
+					uploader:        testUploader{},
+				},
+			},
+			wantErr:       false,
+			setDryRunTrue: true,
+		},
+		{
 			name: "runReport store failure",
 			args: args{
 				r: report{
@@ -82,6 +101,10 @@ func Test_runReport(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.setDryRunTrue {
+				os.Setenv("GHTOOL_DRY_RUN", "true")
+			}
+
 			err := runReport(&tt.args.r, tt.args.s)
 
 			if (err != nil) != tt.wantErr {
@@ -90,6 +113,8 @@ func Test_runReport(t *testing.T) {
 			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
 				t.Errorf("runReport error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
 			}
+
+			os.Setenv("GHTOOL_DRY_RUN", "false")
 		})
 	}
 }
