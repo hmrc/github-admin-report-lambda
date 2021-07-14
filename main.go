@@ -22,21 +22,22 @@ func main() {
 
 func HandleLambdaEvent() error {
 	session := session.Must(session.NewSession())
-	return runReport(session, &report{
+	return runReport(&report{
 		executor:        &command{},
 		parameterGetter: &ssmService{},
 		uploader:        &s3Uploader{},
-	})
+	},
+		session)
 }
 
-func runReport(session *session.Session, r reporter) error {
-	if err := r.setup(session); err != nil {
+func runReport(r *report, session *session.Session) error {
+	if err := setup(*r, session); err != nil {
 		return fmt.Errorf("Setup error: %v", err)
 	}
 
 	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 
-	if err := r.generate(dryRun); err != nil {
+	if err := generate(*r, dryRun); err != nil {
 		return fmt.Errorf("Run error: %v", err)
 	}
 
@@ -44,17 +45,11 @@ func runReport(session *session.Session, r reporter) error {
 		return nil
 	}
 
-	if err := r.store(session, "report.csv"); err != nil {
+	if err := store(*r, session, "report.csv"); err != nil {
 		return fmt.Errorf("Store error: %v", err)
 	}
 
 	return nil
-}
-
-type reporter interface {
-	setup(*session.Session) error
-	generate(bool) error
-	store(*session.Session, string) error
 }
 
 type report struct {
@@ -63,7 +58,12 @@ type report struct {
 	uploader        uploader
 }
 
-func (r report) setup(session *session.Session) error {
+func setup(r report, session *session.Session) error {
+	bucketName := os.Getenv("BUCKET_NAME")
+	if bucketName == "" {
+		return errors.New("bucket name not set")
+	}
+
 	ssmPath := os.Getenv("TOKEN_PATH")
 	token, err := r.parameterGetter.getParameter(
 		session,
@@ -80,7 +80,7 @@ func (r report) setup(session *session.Session) error {
 	return nil
 }
 
-func (r report) generate(dryRun bool) error {
+func generate(r report, dryRun bool) error {
 	args := []string{"report", fmt.Sprintf("--dry-run=%t", dryRun)}
 	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
@@ -91,12 +91,8 @@ func (r report) generate(dryRun bool) error {
 	return nil
 }
 
-func (r report) store(session *session.Session, filename string) error {
+func store(r report, session *session.Session, filename string) error {
 	bucketName := os.Getenv("BUCKET_NAME")
-	if bucketName == "" {
-		return errors.New("bucket name not set")
-	}
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)

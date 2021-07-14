@@ -12,40 +12,20 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
-type testReport struct {
-	setupFail    bool
-	generateFail bool
-	storeFail    bool
-}
-
-func (r testReport) setup(*session.Session) error {
-	if r.setupFail {
-		return errors.New("fail") // nolint // only mock error for test
-	}
-
-	return nil
-}
-
-func (r testReport) generate(bool) error {
-	if r.generateFail {
-		return errors.New("fail") // nolint // only mock error for test
-	}
-
-	return nil
-}
-
-func (r testReport) store(*session.Session, string) error {
-	if r.storeFail {
-		return errors.New("fail") // nolint // only mock error for test
-	}
-
-	return nil
-}
-
 func Test_runReport(t *testing.T) {
+	f, _ := os.Create("report.csv")
+	defer func() {
+		f.Close()
+		os.Remove("report.csv")
+
+		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
+			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
+		}
+	}()
+	os.Setenv("BUCKET_NAME", "some-bucket-name")
 	type args struct {
 		s *session.Session
-		r reporter
+		r report
 	}
 	tests := []struct {
 		name       string
@@ -56,43 +36,53 @@ func Test_runReport(t *testing.T) {
 		{
 			name: "runReport success",
 			args: args{
-				r: testReport{},
+				r: report{
+					executor:        testExecutor{},
+					parameterGetter: testParameterGetter{},
+					uploader:        testUploader{},
+				},
 			},
 		},
 		{
 			name: "runReport set failure",
 			args: args{
-				r: testReport{
-					setupFail: true,
+				r: report{
+					executor:        testExecutor{},
+					parameterGetter: testParameterGetter{getParameterFail: true},
+					uploader:        testUploader{},
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Setup error: fail",
+			wantErrMsg: "Setup error: Get SSM param failed fail",
 		},
 		{
 			name: "runReport run failure",
 			args: args{
-				r: testReport{
-					generateFail: true,
+				r: report{
+					executor:        testExecutor{runFail: true},
+					parameterGetter: testParameterGetter{},
+					uploader:        testUploader{},
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Run error: fail",
+			wantErrMsg: "Run error: failed to run, got: fail, output: nothing",
 		},
 		{
 			name: "runReport store failure",
 			args: args{
-				r: testReport{
-					storeFail: true,
+				r: report{
+					executor:        testExecutor{},
+					parameterGetter: testParameterGetter{},
+					uploader:        testUploader{uploadFail: true},
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Store error: fail",
+			wantErrMsg: "Store error: failed to upload file, fail",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := runReport(tt.args.s, tt.args.r)
+			err := runReport(&tt.args.r, tt.args.s)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("runReport error = %v, wantErr %v", err, tt.wantErr)
@@ -106,33 +96,37 @@ func Test_runReport(t *testing.T) {
 
 func TestReport_generate(t *testing.T) {
 	type args struct {
+		r      report
 		dryRun bool
 	}
 	tests := []struct {
 		name       string
-		r          report
 		args       args
 		wantErr    bool
 		wantErrMsg string
 	}{
 		{
 			name:       "Generate throws error",
-			r:          report{executor: testExecutor{runFail: true}},
 			wantErr:    true,
-			wantErrMsg: "failed to run, got: fail, output: ",
-			args:       args{dryRun: false},
+			wantErrMsg: "failed to run, got: fail, output: nothing",
+			args: args{
+				r:      report{executor: testExecutor{runFail: true}},
+				dryRun: false,
+			},
 		},
 		{
 			name:       "Generate report successfully",
-			r:          report{executor: testExecutor{}},
 			wantErr:    false,
 			wantErrMsg: "",
-			args:       args{dryRun: false},
+			args: args{
+				r:      report{executor: testExecutor{}},
+				dryRun: false,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.r.generate(tt.args.dryRun)
+			err := generate(tt.args.r, tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.generate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -155,11 +149,11 @@ func (u testUploader) upload(session *session.Session, artefact *s3manager.Uploa
 	return &s3manager.UploadOutput{Location: "here"}, nil
 }
 
-type testSSMService struct {
+type testParameterGetter struct {
 	getParameterFail bool
 }
 
-func (g testSSMService) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
+func (g testParameterGetter) getParameter(session *session.Session, input *ssm.GetParameterInput) (*ssm.GetParameterOutput, error) {
 	if g.getParameterFail {
 		return nil, errors.New("fail") // nolint // only mock error for test
 	}
@@ -175,38 +169,35 @@ type testExecutor struct {
 
 func (c testExecutor) run(command string, args ...string) (outout []byte, err error) {
 	if c.runFail {
-		return nil, errors.New("fail") // nolint // only mock error for test
+		return []byte("nothing"), errors.New("fail") // nolint // only mock error for test
 	}
 
 	return []byte("success"), nil
 }
 
 func TestReport_store(t *testing.T) {
-	defer os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
+		r        report
 		session  *session.Session
 		filename string
 	}
 	tests := []struct {
 		name           string
-		runner         report
 		args           args
 		wantErr        bool
+		wantErrMsg     string
 		setEnvVar      bool
 		setEnvVarValue string
 	}{
 		{
-			name:           "Store throws error",
-			wantErr:        true,
-			setEnvVarValue: "",
-		},
-		{
-			name:           "Store throws error past bucket name",
+			name:           "Store throws filed to open file",
 			setEnvVar:      true,
 			wantErr:        true,
+			wantErrMsg:     "failed to open file \"\", open : no such file or directory",
 			setEnvVarValue: "some-bucket-id",
 			args: args{
+				r:       report{uploader: testUploader{}},
 				session: defaultSession,
 			},
 		},
@@ -214,9 +205,10 @@ func TestReport_store(t *testing.T) {
 			name:           "Fail to upload file",
 			setEnvVar:      true,
 			wantErr:        true,
+			wantErrMsg:     "failed to upload file, fail",
 			setEnvVarValue: "some-bucket-id",
-			runner:         report{uploader: &testUploader{uploadFail: true}},
 			args: args{
+				r:        report{uploader: &testUploader{uploadFail: true}},
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
@@ -226,8 +218,8 @@ func TestReport_store(t *testing.T) {
 			setEnvVar:      true,
 			wantErr:        false,
 			setEnvVarValue: "some-bucket-id",
-			runner:         report{uploader: &testUploader{uploadFail: false}},
 			args: args{
+				r:        report{uploader: &testUploader{uploadFail: false}},
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
@@ -243,12 +235,12 @@ func TestReport_store(t *testing.T) {
 				}
 				filename = file.Name()
 			}
-			os.Unsetenv("BUCKET_NAME")
-			if tt.setEnvVar {
-				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
-			}
-			if err := tt.runner.store(tt.args.session, filename); (err != nil) != tt.wantErr {
+			err := store(tt.args.r, tt.args.session, filename)
+			if (err != nil) != tt.wantErr {
 				t.Errorf("report.store() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
+				t.Errorf("runReport error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
 			}
 		})
 	}
@@ -274,54 +266,75 @@ func TestHandleLambdaEvent(t *testing.T) {
 }
 
 func TestReport_setup(t *testing.T) {
-	defer os.Setenv("GHTOOL_TOKEN", os.Getenv("GHTOOL_TOKEN"))
+	defer func() {
+		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
+			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
+		}
+	}()
 	defaultSession := session.Must(session.NewSession())
-	type fields struct {
-		uploader        uploader
-		parameterGetter parameterGetter
-	}
 	type args struct {
+		r       report
 		session *session.Session
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name           string
+		args           args
+		setEnvVar      bool
+		setEnvVarValue string
+		wantErr        bool
+		wantErrMsg     string
 	}{
 		{
 			name: "Setup success",
-			fields: fields{
-				parameterGetter: testSSMService{
-					getParameterFail: false,
-				},
-			},
 			args: args{
+				r: report{
+					parameterGetter: testParameterGetter{
+						getParameterFail: false,
+					},
+				},
 				session: defaultSession,
 			},
-			wantErr: false,
+			setEnvVar:      true,
+			setEnvVarValue: "some-bucket-id",
+			wantErr:        false,
 		},
 		{
 			name: "Setup failed",
-			fields: fields{
-				parameterGetter: testSSMService{
-					getParameterFail: true,
-				},
-			},
 			args: args{
+				r: report{
+					parameterGetter: testParameterGetter{
+						getParameterFail: true,
+					},
+				},
 				session: defaultSession,
 			},
-			wantErr: true,
+			setEnvVar:      true,
+			setEnvVarValue: "some-bucket-id",
+			wantErr:        true,
+			wantErrMsg:     "Get SSM param failed fail",
+		},
+		{
+			name:       "Setup throws error bucket not set",
+			wantErr:    true,
+			wantErrMsg: "bucket name not set",
+			args: args{
+				r:       report{uploader: testUploader{}},
+				session: defaultSession,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := report{
-				uploader:        tt.fields.uploader,
-				parameterGetter: tt.fields.parameterGetter,
+			os.Unsetenv("BUCKET_NAME")
+			if tt.setEnvVar {
+				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
 			}
-			if err := r.setup(tt.args.session); (err != nil) != tt.wantErr {
-				t.Errorf("report.setup() error = %v, wantErr %v", err, tt.wantErr)
+			err := setup(tt.args.r, tt.args.session)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("setup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
+				t.Errorf("setup() error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
 			}
 		})
 	}
