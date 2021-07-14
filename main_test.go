@@ -96,37 +96,37 @@ func Test_runReport(t *testing.T) {
 
 func TestReport_generate(t *testing.T) {
 	type args struct {
-		r      report
 		dryRun bool
 	}
 	tests := []struct {
 		name       string
 		args       args
+		r          report
 		wantErr    bool
 		wantErrMsg string
 	}{
 		{
 			name:       "Generate throws error",
+			r:          report{executor: testExecutor{runFail: true}},
 			wantErr:    true,
 			wantErrMsg: "failed to run, got: fail, output: nothing",
 			args: args{
-				r:      report{executor: testExecutor{runFail: true}},
 				dryRun: false,
 			},
 		},
 		{
 			name:       "Generate report successfully",
+			r:          report{executor: testExecutor{}},
 			wantErr:    false,
 			wantErrMsg: "",
 			args: args{
-				r:      report{executor: testExecutor{}},
 				dryRun: false,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := generate(tt.args.r, tt.args.dryRun)
+			err := tt.r.generate(tt.args.dryRun)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.generate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -178,12 +178,12 @@ func (c testExecutor) run(command string, args ...string) (outout []byte, err er
 func TestReport_store(t *testing.T) {
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
-		r        report
 		session  *session.Session
 		filename string
 	}
 	tests := []struct {
 		name           string
+		r              report
 		args           args
 		wantErr        bool
 		wantErrMsg     string
@@ -192,34 +192,34 @@ func TestReport_store(t *testing.T) {
 	}{
 		{
 			name:           "Store throws filed to open file",
+			r:              report{uploader: testUploader{}},
 			setEnvVar:      true,
 			wantErr:        true,
 			wantErrMsg:     "failed to open file \"\", open : no such file or directory",
 			setEnvVarValue: "some-bucket-id",
 			args: args{
-				r:       report{uploader: testUploader{}},
 				session: defaultSession,
 			},
 		},
 		{
 			name:           "Fail to upload file",
+			r:              report{uploader: &testUploader{uploadFail: true}},
 			setEnvVar:      true,
 			wantErr:        true,
 			wantErrMsg:     "failed to upload file, fail",
 			setEnvVarValue: "some-bucket-id",
 			args: args{
-				r:        report{uploader: &testUploader{uploadFail: true}},
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
 		},
 		{
 			name:           "Successfully upload hello.txt",
+			r:              report{uploader: &testUploader{uploadFail: false}},
 			setEnvVar:      true,
 			wantErr:        false,
 			setEnvVarValue: "some-bucket-id",
 			args: args{
-				r:        report{uploader: &testUploader{uploadFail: false}},
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
@@ -235,7 +235,7 @@ func TestReport_store(t *testing.T) {
 				}
 				filename = file.Name()
 			}
-			err := store(tt.args.r, tt.args.session, filename)
+			err := tt.r.store(tt.args.session, filename)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.store() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -273,11 +273,11 @@ func TestReport_setup(t *testing.T) {
 	}()
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
-		r       report
 		session *session.Session
 	}
 	tests := []struct {
 		name           string
+		r              report
 		args           args
 		setEnvVar      bool
 		setEnvVarValue string
@@ -286,12 +286,12 @@ func TestReport_setup(t *testing.T) {
 	}{
 		{
 			name: "Setup success",
-			args: args{
-				r: report{
-					parameterGetter: testParameterGetter{
-						getParameterFail: false,
-					},
+			r: report{
+				parameterGetter: testParameterGetter{
+					getParameterFail: false,
 				},
+			},
+			args: args{
 				session: defaultSession,
 			},
 			setEnvVar:      true,
@@ -300,12 +300,12 @@ func TestReport_setup(t *testing.T) {
 		},
 		{
 			name: "Setup failed",
-			args: args{
-				r: report{
-					parameterGetter: testParameterGetter{
-						getParameterFail: true,
-					},
+			r: report{
+				parameterGetter: testParameterGetter{
+					getParameterFail: true,
 				},
+			},
+			args: args{
 				session: defaultSession,
 			},
 			setEnvVar:      true,
@@ -315,10 +315,10 @@ func TestReport_setup(t *testing.T) {
 		},
 		{
 			name:       "Setup throws error bucket not set",
+			r:          report{uploader: testUploader{}},
 			wantErr:    true,
 			wantErrMsg: "bucket name not set",
 			args: args{
-				r:       report{uploader: testUploader{}},
 				session: defaultSession,
 			},
 		},
@@ -329,7 +329,7 @@ func TestReport_setup(t *testing.T) {
 			if tt.setEnvVar {
 				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
 			}
-			err := setup(tt.args.r, tt.args.session)
+			err := tt.r.setup(tt.args.session)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("setup() error = %v, wantErr %v", err, tt.wantErr)
 			}

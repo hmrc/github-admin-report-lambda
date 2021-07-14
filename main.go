@@ -31,13 +31,13 @@ func HandleLambdaEvent() error {
 }
 
 func runReport(r *report, session *session.Session) error {
-	if err := setup(*r, session); err != nil {
+	if err := r.setup(session); err != nil {
 		return fmt.Errorf("Setup error: %v", err)
 	}
 
 	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 
-	if err := generate(*r, dryRun); err != nil {
+	if err := r.generate(dryRun); err != nil {
 		return fmt.Errorf("Run error: %v", err)
 	}
 
@@ -45,7 +45,7 @@ func runReport(r *report, session *session.Session) error {
 		return nil
 	}
 
-	if err := store(*r, session, "report.csv"); err != nil {
+	if err := r.store(session, "report.csv"); err != nil {
 		return fmt.Errorf("Store error: %v", err)
 	}
 
@@ -58,7 +58,7 @@ type report struct {
 	uploader        uploader
 }
 
-func setup(r report, session *session.Session) error {
+func (r report) setup(session *session.Session) error {
 	bucketName := os.Getenv("BUCKET_NAME")
 	if bucketName == "" {
 		return errors.New("bucket name not set")
@@ -80,7 +80,7 @@ func setup(r report, session *session.Session) error {
 	return nil
 }
 
-func generate(r report, dryRun bool) error {
+func (r report) generate(dryRun bool) error {
 	args := []string{"report", fmt.Sprintf("--dry-run=%t", dryRun)}
 	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
@@ -91,7 +91,7 @@ func generate(r report, dryRun bool) error {
 	return nil
 }
 
-func store(r report, session *session.Session, filename string) error {
+func (r report) store(session *session.Session, filename string) error {
 	bucketName := os.Getenv("BUCKET_NAME")
 	f, err := os.Open(filename)
 	if err != nil {
