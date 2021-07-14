@@ -56,11 +56,12 @@ type report struct {
 	executor        executor
 	parameterGetter parameterGetter
 	uploader        uploader
+	bucketName      string
 }
 
-func (r report) setup(session *session.Session) error {
-	bucketName := os.Getenv("BUCKET_NAME")
-	if bucketName == "" {
+func (r *report) setup(session *session.Session) error {
+	r.bucketName = os.Getenv("BUCKET_NAME")
+	if r.bucketName == "" {
 		return errors.New("bucket name not set")
 	}
 
@@ -92,7 +93,6 @@ func (r report) generate(dryRun bool) error {
 }
 
 func (r report) store(session *session.Session, filename string) error {
-	bucketName := os.Getenv("BUCKET_NAME")
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)
@@ -101,7 +101,7 @@ func (r report) store(session *session.Session, filename string) error {
 	objectName := fmt.Sprintf("%s-%s", filename, t.Format(time.RFC3339))
 
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(r.bucketName),
 		Key:    aws.String(objectName),
 		Body:   f,
 	})
