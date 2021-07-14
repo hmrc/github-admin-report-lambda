@@ -32,13 +32,13 @@ func HandleLambdaEvent() error {
 
 func runReport(r *report, session *session.Session) error {
 	if err := r.setup(session); err != nil {
-		return fmt.Errorf("Setup error: %v", err)
+		return fmt.Errorf("setup error: %v", err)
 	}
 
 	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
 
 	if err := r.generate(dryRun); err != nil {
-		return fmt.Errorf("Run error: %v", err)
+		return fmt.Errorf("generate error: %v", err)
 	}
 
 	if dryRun {
@@ -46,7 +46,7 @@ func runReport(r *report, session *session.Session) error {
 	}
 
 	if err := r.store(session, "report.csv"); err != nil {
-		return fmt.Errorf("Store error: %v", err)
+		return fmt.Errorf("store error: %v", err)
 	}
 
 	return nil
@@ -72,7 +72,7 @@ func (r report) setup(session *session.Session) error {
 			WithDecryption: aws.Bool(true),
 		})
 	if err != nil {
-		return fmt.Errorf("Get SSM param failed %v", err)
+		return fmt.Errorf("get SSM param failed %v", err)
 	}
 
 	os.Setenv("GHTOOL_TOKEN", *token.Parameter.Value)

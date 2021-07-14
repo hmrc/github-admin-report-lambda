@@ -60,7 +60,7 @@ func Test_runReport(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Setup error: Get SSM param failed fail",
+			wantErrMsg: "setup error: get SSM param failed fail",
 		},
 		{
 			name: "runReport run failure",
@@ -72,7 +72,7 @@ func Test_runReport(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Run error: failed to run, got: fail, output: nothing",
+			wantErrMsg: "generate error: failed to run, got: fail, output: nothing",
 		},
 		{
 			name: "runReport dry run exit",
@@ -96,7 +96,7 @@ func Test_runReport(t *testing.T) {
 				},
 			},
 			wantErr:    true,
-			wantErrMsg: "Store error: failed to upload file, fail",
+			wantErrMsg: "store error: failed to upload file, fail",
 		},
 	}
 	for _, tt := range tests {
@@ -336,7 +336,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvVar:      true,
 			setEnvVarValue: "some-bucket-id",
 			wantErr:        true,
-			wantErrMsg:     "Get SSM param failed fail",
+			wantErrMsg:     "get SSM param failed fail",
 		},
 		{
 			name:       "Setup throws error bucket not set",
