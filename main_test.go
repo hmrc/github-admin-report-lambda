@@ -28,7 +28,6 @@ func Test_runReport(t *testing.T) {
 	}()
 	os.Setenv("BUCKET_NAME", "some-bucket-name")
 	os.Setenv("GHTOOL_DRY_RUN", "false")
-
 	type args struct {
 		s *session.Session
 		r report
@@ -46,7 +45,7 @@ func Test_runReport(t *testing.T) {
 				r: report{
 					executor:        testExecutor{},
 					parameterGetter: testParameterGetter{},
-					uploader:        testUploader{},
+					uploader:        &testUploader{},
 				},
 			},
 		},
@@ -56,7 +55,7 @@ func Test_runReport(t *testing.T) {
 				r: report{
 					executor:        testExecutor{},
 					parameterGetter: testParameterGetter{getParameterFail: true},
-					uploader:        testUploader{},
+					uploader:        &testUploader{},
 				},
 			},
 			wantErr:    true,
@@ -68,7 +67,7 @@ func Test_runReport(t *testing.T) {
 				r: report{
 					executor:        testExecutor{runFail: true},
 					parameterGetter: testParameterGetter{},
-					uploader:        testUploader{},
+					uploader:        &testUploader{},
 				},
 			},
 			wantErr:    true,
@@ -80,7 +79,7 @@ func Test_runReport(t *testing.T) {
 				r: report{
 					executor:        testExecutor{},
 					parameterGetter: testParameterGetter{},
-					uploader:        testUploader{},
+					uploader:        &testUploader{},
 				},
 			},
 			wantErr:       false,
@@ -92,7 +91,7 @@ func Test_runReport(t *testing.T) {
 				r: report{
 					executor:        testExecutor{},
 					parameterGetter: testParameterGetter{},
-					uploader:        testUploader{uploadFail: true},
+					uploader:        &testUploader{uploadFail: true},
 				},
 			},
 			wantErr:    true,
@@ -120,38 +119,34 @@ func Test_runReport(t *testing.T) {
 }
 
 func TestReport_generate(t *testing.T) {
-	type args struct {
-		dryRun bool
-	}
 	tests := []struct {
 		name       string
-		args       args
 		r          report
 		wantErr    bool
 		wantErrMsg string
 	}{
 		{
-			name:       "Generate throws error",
-			r:          report{executor: testExecutor{runFail: true}},
+			name: "Generate throws error",
+			r: report{
+				executor: testExecutor{runFail: true},
+				dryRun:   false,
+			},
 			wantErr:    true,
 			wantErrMsg: "failed to run, got: fail, output: nothing",
-			args: args{
-				dryRun: false,
-			},
 		},
 		{
-			name:       "Generate report successfully",
-			r:          report{executor: testExecutor{}},
+			name: "Generate report successfully",
+			r: report{
+				executor: testExecutor{},
+				dryRun:   false,
+			},
 			wantErr:    false,
 			wantErrMsg: "",
-			args: args{
-				dryRun: false,
-			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.r.generate(tt.args.dryRun)
+			err := tt.r.generate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.generate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -164,9 +159,11 @@ func TestReport_generate(t *testing.T) {
 
 type testUploader struct {
 	uploadFail bool
+	called     bool
 }
 
-func (u testUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+func (u *testUploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+	u.called = true
 	if u.uploadFail {
 		return nil, errors.New("fail") // nolint // only mock error for test
 	}
@@ -207,47 +204,52 @@ func TestReport_store(t *testing.T) {
 		filename string
 	}
 	tests := []struct {
-		name           string
-		r              report
-		args           args
-		wantErr        bool
-		wantErrMsg     string
-		setEnvVar      bool
-		setEnvVarValue string
+		name             string
+		r                report
+		args             args
+		wantUploadCalled bool
+		wantErr          bool
+		wantErrMsg       string
 	}{
 		{
-			name:           "Store throws filed to open file",
-			r:              report{uploader: testUploader{}},
-			setEnvVar:      true,
-			wantErr:        true,
-			wantErrMsg:     "failed to open file \"\", open : no such file or directory",
-			setEnvVarValue: "some-bucket-id",
+			name:             "Store throws filed to open file",
+			r:                report{uploader: &testUploader{}},
+			wantUploadCalled: false,
+			wantErr:          true,
+			wantErrMsg:       "failed to open file \"\", open : no such file or directory",
 			args: args{
 				session: defaultSession,
 			},
 		},
 		{
-			name:           "Fail to upload file",
-			r:              report{uploader: &testUploader{uploadFail: true}},
-			setEnvVar:      true,
-			wantErr:        true,
-			wantErrMsg:     "failed to upload file, fail",
-			setEnvVarValue: "some-bucket-id",
+			name:             "Fail to upload file",
+			r:                report{uploader: &testUploader{uploadFail: true}},
+			wantUploadCalled: true,
+			wantErr:          true,
+			wantErrMsg:       "failed to upload file, fail",
 			args: args{
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
 		},
 		{
-			name:           "Successfully upload hello.txt",
-			r:              report{uploader: &testUploader{uploadFail: false}},
-			setEnvVar:      true,
-			wantErr:        false,
-			setEnvVarValue: "some-bucket-id",
+			name:             "Successfully upload hello.txt",
+			r:                report{uploader: &testUploader{uploadFail: false}},
+			wantUploadCalled: true,
+			wantErr:          false,
 			args: args{
 				session:  defaultSession,
 				filename: "hello.txt",
 			},
+		},
+		{
+			name: "Do not store if running in dry run mode",
+			r: report{
+				uploader: &testUploader{uploadFail: false},
+				dryRun:   true,
+			},
+			wantUploadCalled: false,
+			wantErr:          false,
 		},
 	}
 	for _, tt := range tests {
@@ -266,6 +268,17 @@ func TestReport_store(t *testing.T) {
 			}
 			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
 				t.Errorf("runReport error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+			}
+			gotUploader, ok := tt.r.uploader.(*testUploader)
+			if !ok {
+				t.Fatalf("cannot cast uploader to testUploader")
+			}
+			if gotUploader.called != tt.wantUploadCalled {
+				if gotUploader.called {
+					t.Errorf("uploader was called and it should not")
+				} else {
+					t.Errorf("uploader should not be called and it was")
+				}
 			}
 		})
 	}
@@ -295,19 +308,24 @@ func TestReport_setup(t *testing.T) {
 		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
 			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
 		}
+		if _, exists := os.LookupEnv("GHTOOL_DRY_RUN"); exists {
+			os.Setenv("GHTOOL_DRY_RUN", os.Getenv("GHTOOL_DRY_RUN"))
+		}
 	}()
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
 		session *session.Session
 	}
 	tests := []struct {
-		name           string
-		r              report
-		args           args
-		setEnvVar      bool
-		setEnvVarValue string
-		wantErr        bool
-		wantErrMsg     string
+		name             string
+		r                report
+		args             args
+		setEnvVar        bool
+		setEnvBucket     string
+		setEnvDryRun     string
+		wantReportDryRun bool
+		wantErr          bool
+		wantErrMsg       string
 	}{
 		{
 			name: "Setup success",
@@ -319,9 +337,11 @@ func TestReport_setup(t *testing.T) {
 			args: args{
 				session: defaultSession,
 			},
-			setEnvVar:      true,
-			setEnvVarValue: "some-bucket-id",
-			wantErr:        false,
+			setEnvVar:        true,
+			setEnvBucket:     "some-bucket-id",
+			setEnvDryRun:     "true",
+			wantReportDryRun: true,
+			wantErr:          false,
 		},
 		{
 			name: "Setup failed",
@@ -333,16 +353,54 @@ func TestReport_setup(t *testing.T) {
 			args: args{
 				session: defaultSession,
 			},
-			setEnvVar:      true,
-			setEnvVarValue: "some-bucket-id",
-			wantErr:        true,
-			wantErrMsg:     "get SSM param failed fail",
+			setEnvVar:        true,
+			setEnvBucket:     "some-bucket-id",
+			setEnvDryRun:     "true",
+			wantReportDryRun: true,
+			wantErr:          true,
+			wantErrMsg:       "get SSM param failed fail",
 		},
 		{
-			name:       "Setup throws error bucket not set",
-			r:          report{uploader: testUploader{}},
-			wantErr:    true,
-			wantErrMsg: "bucket name not set",
+			name:             "Setup throws error bucket and dryRun not set",
+			r:                report{parameterGetter: testParameterGetter{}},
+			wantReportDryRun: true,
+			wantErr:          true,
+			wantErrMsg:       "bucket name not set",
+			args: args{
+				session: defaultSession,
+			},
+		},
+		{
+			name:             "Setup throws error bucket not set",
+			r:                report{parameterGetter: testParameterGetter{}},
+			wantReportDryRun: true,
+			wantErr:          true,
+			wantErrMsg:       "bucket name not set",
+			args: args{
+				session: defaultSession,
+			},
+		},
+		{
+			name:             "Setup throws error bucket name empty",
+			r:                report{parameterGetter: testParameterGetter{}},
+			setEnvVar:        true,
+			setEnvBucket:     "",
+			setEnvDryRun:     "true",
+			wantReportDryRun: true,
+			wantErr:          true,
+			wantErrMsg:       "bucket name not set",
+			args: args{
+				session: defaultSession,
+			},
+		},
+		{
+			name:             "Success with no dry run settings",
+			r:                report{parameterGetter: testParameterGetter{}},
+			setEnvVar:        true,
+			setEnvBucket:     "some-bucket-id",
+			setEnvDryRun:     "",
+			wantReportDryRun: true,
+			wantErr:          false,
 			args: args{
 				session: defaultSession,
 			},
@@ -352,7 +410,11 @@ func TestReport_setup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Unsetenv("BUCKET_NAME")
 			if tt.setEnvVar {
-				os.Setenv("BUCKET_NAME", tt.setEnvVarValue)
+				os.Setenv("BUCKET_NAME", tt.setEnvBucket)
+			}
+			os.Unsetenv("GHTOOL_DRY_RUN")
+			if tt.setEnvVar {
+				os.Setenv("GHTOOL_DRY_RUN", tt.setEnvBucket)
 			}
 			err := tt.r.setup(tt.args.session)
 			if (err != nil) != tt.wantErr {
@@ -360,6 +422,9 @@ func TestReport_setup(t *testing.T) {
 			}
 			if tt.wantErrMsg != "" && tt.wantErrMsg != err.Error() {
 				t.Errorf("setup() error = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+			}
+			if tt.r.dryRun != tt.wantReportDryRun {
+				t.Errorf("report.dryRun = %v, wantReportDryRun %v", tt.r.dryRun, tt.wantReportDryRun)
 			}
 		})
 	}

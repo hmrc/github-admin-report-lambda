@@ -35,14 +35,8 @@ func runReport(r *report, session *session.Session) error {
 		return fmt.Errorf("setup error: %v", err)
 	}
 
-	dryRun, _ := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
-
-	if err := r.generate(dryRun); err != nil {
+	if err := r.generate(); err != nil {
 		return fmt.Errorf("generate error: %v", err)
-	}
-
-	if dryRun {
-		return nil
 	}
 
 	if err := r.store(session, "report.csv"); err != nil {
@@ -57,9 +51,16 @@ type report struct {
 	parameterGetter parameterGetter
 	uploader        uploader
 	bucketName      string
+	dryRun          bool
 }
 
 func (r *report) setup(session *session.Session) error {
+	dryRun, err := strconv.ParseBool(os.Getenv("GHTOOL_DRY_RUN"))
+	if err != nil {
+		dryRun = true // safe fallback
+	}
+	r.dryRun = dryRun
+
 	r.bucketName = os.Getenv("BUCKET_NAME")
 	if r.bucketName == "" {
 		return errors.New("bucket name not set")
@@ -81,8 +82,8 @@ func (r *report) setup(session *session.Session) error {
 	return nil
 }
 
-func (r report) generate(dryRun bool) error {
-	args := []string{"report", fmt.Sprintf("--dry-run=%t", dryRun)}
+func (r report) generate() error {
+	args := []string{"report", fmt.Sprintf("--dry-run=%t", r.dryRun)}
 	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
 		return fmt.Errorf("failed to run, got: %w, output: %s", err, output)
@@ -93,6 +94,10 @@ func (r report) generate(dryRun bool) error {
 }
 
 func (r report) store(session *session.Session, filename string) error {
+	if r.dryRun {
+		return nil
+	}
+
 	f, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("failed to open file %q, %v", filename, err)
@@ -121,7 +126,7 @@ type uploader interface {
 
 type s3Uploader struct{}
 
-func (s s3Uploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
+func (s *s3Uploader) upload(session *session.Session, artefact *s3manager.UploadInput) (*s3manager.UploadOutput, error) {
 	return s3manager.NewUploader(session).Upload(artefact)
 }
 
