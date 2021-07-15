@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 # install github-admin-tool
-RUN wget -O- https://github.com/hmrc/github-admin-tool/releases/download/v0.1.3/github-admin-tool_0.1.3_Linux_arm64.tar.gz \
+RUN wget -O- https://github.com/hmrc/github-admin-tool/releases/download/v0.1.3/github-admin-tool_0.1.3_Linux_x86_64.tar.gz \
     | tar -xzv \
     && mv github-admin-tool github-admin-tool \
     && chmod 755 github-admin-tool
