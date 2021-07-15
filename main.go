@@ -113,7 +113,6 @@ func (r report) store(session *session.Session, filename string) error {
 		return fmt.Errorf("failed to upload file, %v", err)
 	}
 
-	log.SetFlags(0)
 	log.Printf("file uploaded to %v", result.Location)
 
 	return nil
