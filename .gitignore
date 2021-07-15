@@ -1,4 +1,3 @@
-
 logs
 project/project
 project/target
@@ -19,7 +18,6 @@ dist
 *.iws
 node_modules/
 npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-    
+cover.out
+github-admin-tool
+.vscode
