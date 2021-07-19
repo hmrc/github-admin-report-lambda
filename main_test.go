@@ -13,10 +13,10 @@ import (
 )
 
 func Test_runReport(t *testing.T) {
-	f, _ := os.Create("report.csv")
+	f, _ := os.Create("/tmp/report.csv")
 	defer func() {
 		f.Close()
-		os.Remove("report.csv")
+		os.Remove("/tmp/report.csv")
 
 		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
 			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
@@ -25,9 +25,14 @@ func Test_runReport(t *testing.T) {
 		if _, exists := os.LookupEnv("GHTOOL_DRY_RUN"); exists {
 			os.Setenv("GHTOOL_DRY_RUN", os.Getenv("GHTOOL_DRY_RUN"))
 		}
+
+		if _, exists := os.LookupEnv("GHTOOL_FILE_PATH"); exists {
+			os.Setenv("GHTOOL_FILE_PATH", os.Getenv("GHTOOL_FILE_PATH"))
+		}
 	}()
 	os.Setenv("BUCKET_NAME", "some-bucket-name")
 	os.Setenv("GHTOOL_DRY_RUN", "false")
+	os.Setenv("GHTOOL_FILE_PATH", "/tmp/report.csv")
 	type args struct {
 		s *session.Session
 		r report
@@ -200,8 +205,7 @@ func (c testExecutor) run(command string, args ...string) (outout []byte, err er
 func TestReport_store(t *testing.T) {
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
-		session  *session.Session
-		filename string
+		session *session.Session
 	}
 	tests := []struct {
 		name             string
@@ -210,6 +214,7 @@ func TestReport_store(t *testing.T) {
 		wantUploadCalled bool
 		wantErr          bool
 		wantErrMsg       string
+		filename         string
 	}{
 		{
 			name:             "Store throws filed to open file",
@@ -222,24 +227,28 @@ func TestReport_store(t *testing.T) {
 			},
 		},
 		{
-			name:             "Fail to upload file",
-			r:                report{uploader: &testUploader{uploadFail: true}},
+			name: "Fail to upload file",
+			r: report{
+				uploader: &testUploader{uploadFail: true},
+			},
+			filename:         "hello.txt",
 			wantUploadCalled: true,
 			wantErr:          true,
 			wantErrMsg:       "failed to upload file, fail",
 			args: args{
-				session:  defaultSession,
-				filename: "hello.txt",
+				session: defaultSession,
 			},
 		},
 		{
-			name:             "Successfully upload hello.txt",
-			r:                report{uploader: &testUploader{uploadFail: false}},
+			name: "Successfully upload hello.txt",
+			r: report{
+				uploader: &testUploader{uploadFail: false},
+			},
+			filename:         "hello.txt",
 			wantUploadCalled: true,
 			wantErr:          false,
 			args: args{
-				session:  defaultSession,
-				filename: "hello.txt",
+				session: defaultSession,
 			},
 		},
 		{
@@ -254,15 +263,15 @@ func TestReport_store(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filename := tt.args.filename
-			if tt.args.filename != "" {
-				file, err := ioutil.TempFile(t.TempDir(), tt.args.filename)
+			if tt.filename != "" {
+				file, err := ioutil.TempFile(t.TempDir(), tt.filename)
 				if err != nil {
 					t.Fatalf("cannot create helper file: %v", err)
 				}
-				filename = file.Name()
+				tt.r.filePath = file.Name()
 			}
-			err := tt.r.store(tt.args.session, filename)
+
+			err := tt.r.store(tt.args.session)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("report.store() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -311,6 +320,9 @@ func TestReport_setup(t *testing.T) {
 		if _, exists := os.LookupEnv("GHTOOL_DRY_RUN"); exists {
 			os.Setenv("GHTOOL_DRY_RUN", os.Getenv("GHTOOL_DRY_RUN"))
 		}
+		if _, exists := os.LookupEnv("GHTOOL_FILE_PATH"); exists {
+			os.Setenv("GHTOOL_FILE_PATH", os.Getenv("GHTOOL_FILE_PATH"))
+		}
 	}()
 	defaultSession := session.Must(session.NewSession())
 	type args struct {
@@ -323,6 +335,7 @@ func TestReport_setup(t *testing.T) {
 		setEnvVar        bool
 		setEnvBucket     string
 		setEnvDryRun     string
+		setFilePath      string
 		wantReportDryRun bool
 		wantErr          bool
 		wantErrMsg       string
@@ -340,6 +353,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvVar:        true,
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "true",
+			setFilePath:      "some-file-path",
 			wantReportDryRun: true,
 			wantErr:          false,
 		},
@@ -356,6 +370,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvVar:        true,
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "true",
+			setFilePath:      "some-file-path",
 			wantReportDryRun: true,
 			wantErr:          true,
 			wantErrMsg:       "get SSM param failed fail",
@@ -394,11 +409,25 @@ func TestReport_setup(t *testing.T) {
 			},
 		},
 		{
+			name:             "Setup throws error file path not set",
+			r:                report{parameterGetter: testParameterGetter{}},
+			setEnvVar:        true,
+			setEnvBucket:     "some-bucket-id",
+			setEnvDryRun:     "",
+			setFilePath:      "",
+			wantReportDryRun: true,
+			wantErr:          true,
+			args: args{
+				session: defaultSession,
+			},
+		},
+		{
 			name:             "Success with no dry run settings",
 			r:                report{parameterGetter: testParameterGetter{}},
 			setEnvVar:        true,
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "",
+			setFilePath:      "some-file-path",
 			wantReportDryRun: true,
 			wantErr:          false,
 			args: args{
@@ -409,13 +438,14 @@ func TestReport_setup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Unsetenv("BUCKET_NAME")
+			os.Unsetenv("GHTOOL_DRY_RUN")
+			os.Unsetenv("GHTOOL_FILE_PATH")
 			if tt.setEnvVar {
 				os.Setenv("BUCKET_NAME", tt.setEnvBucket)
+				os.Setenv("GHTOOL_DRY_RUN", tt.setEnvDryRun)
+				os.Setenv("GHTOOL_FILE_PATH", tt.setFilePath)
 			}
-			os.Unsetenv("GHTOOL_DRY_RUN")
-			if tt.setEnvVar {
-				os.Setenv("GHTOOL_DRY_RUN", tt.setEnvBucket)
-			}
+
 			err := tt.r.setup(tt.args.session)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("setup() error = %v, wantErr %v", err, tt.wantErr)

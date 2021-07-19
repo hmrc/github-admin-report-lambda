@@ -25,7 +25,6 @@ RUN groupmod -g 64 dialout \
     -G union \
     builder \
     && chown -R builder:union "${workdir}"
-
 FROM base AS gofmt
 ENTRYPOINT [ "/usr/local/go/bin/gofmt" ]
 

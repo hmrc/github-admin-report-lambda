@@ -72,6 +72,7 @@ local_run: build-rie
 		--env GHTOOL_DRY_RUN \
 		--env GHTOOL_ORG \
 		--env TOKEN_PATH \
+		--env GHTOOL_FILE_PATH \
 		github-admin-report-rie:latest \
 		/main
 	curl -XPOST \
