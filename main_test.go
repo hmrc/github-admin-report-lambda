@@ -13,10 +13,10 @@ import (
 )
 
 func Test_runReport(t *testing.T) {
-	f, _ := os.Create("report.csv")
+	f, _ := os.Create("/tmp/report.csv")
 	defer func() {
 		f.Close()
-		os.Remove("report.csv")
+		os.Remove("/tmp/report.csv")
 
 		if _, exists := os.LookupEnv("BUCKET_NAME"); exists {
 			os.Setenv("BUCKET_NAME", os.Getenv("BUCKET_NAME"))
