@@ -39,7 +39,7 @@ func runReport(r *report, session *session.Session) error {
 		return fmt.Errorf("generate error: %v", err)
 	}
 
-	if err := r.store(session, "report.csv"); err != nil {
+	if err := r.store(session); err != nil {
 		return fmt.Errorf("store error: %v", err)
 	}
 
@@ -52,6 +52,7 @@ type report struct {
 	uploader        uploader
 	bucketName      string
 	dryRun          bool
+	filePath        string
 }
 
 func (r *report) setup(session *session.Session) error {
@@ -64,6 +65,11 @@ func (r *report) setup(session *session.Session) error {
 	r.bucketName = os.Getenv("BUCKET_NAME")
 	if r.bucketName == "" {
 		return errors.New("bucket name not set")
+	}
+
+	r.filePath = os.Getenv("GHTOOL_FILE_PATH")
+	if r.filePath == "" {
+		return errors.New("file path not set")
 	}
 
 	token, err := r.parameterGetter.getParameter(
@@ -82,7 +88,11 @@ func (r *report) setup(session *session.Session) error {
 }
 
 func (r report) generate() error {
-	args := []string{"report", fmt.Sprintf("--dry-run=%t", r.dryRun)}
+	args := []string{
+		"report",
+		fmt.Sprintf("--dry-run=%t", r.dryRun),
+		fmt.Sprintf("--file-path=%s", r.filePath),
+	}
 	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
 		return fmt.Errorf("failed to run, got: %w, output: %s", err, output)
@@ -92,17 +102,17 @@ func (r report) generate() error {
 	return nil
 }
 
-func (r report) store(session *session.Session, filename string) error {
+func (r report) store(session *session.Session) error {
 	if r.dryRun {
 		return nil
 	}
 
-	f, err := os.Open(filename)
+	f, err := os.Open(r.filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %q, %v", filename, err)
+		return fmt.Errorf("failed to open file %q, %v", r.filePath, err)
 	}
 
-	objectName := fmt.Sprintf("%s-%s", filename, time.Now().Format(time.RFC3339))
+	objectName := fmt.Sprintf("report-%s.csv", time.Now().Format(time.RFC3339))
 
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(r.bucketName),

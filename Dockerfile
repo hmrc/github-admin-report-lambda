@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 # install github-admin-tool
-RUN wget -O- https://github.com/hmrc/github-admin-tool/releases/download/v0.1.3/github-admin-tool_0.1.3_Linux_x86_64.tar.gz \
+RUN wget -O- https://github.com/hmrc/github-admin-tool/releases/download/v0.1.4/github-admin-tool_0.1.4_Linux_x86_64.tar.gz \
     | tar -xzv \
     && mv github-admin-tool github-admin-tool \
     && chmod 755 github-admin-tool
@@ -27,5 +27,7 @@ WORKDIR /
 
 FROM distro AS rie
 COPY --from=build /app/aws-lambda-rie /aws-lambda-rie
+# creates /tmp for storing the report
+COPY --from=build /tmp /tmp
 EXPOSE 8080
 ENTRYPOINT [ "/aws-lambda-rie" ]
