@@ -70,9 +70,10 @@ local_run: build-rie
 		--env AWS_REGION \
 		--env BUCKET_NAME \
 		--env GHTOOL_DRY_RUN \
-		--env GHTOOL_ORG \
-		--env TOKEN_PATH \
 		--env GHTOOL_FILE_PATH \
+		--env GHTOOL_ORG \
+		--env GHTOOL_TEAM \
+		--env TOKEN_PATH \
 		github-admin-report-rie:latest \
 		/main
 	curl -XPOST \
