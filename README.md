@@ -31,6 +31,12 @@ GHTOOL_ORG=github-org-name
 TOKEN_PATH=name-of-ssm-param-to-be-called
 ```
 
+Optional ENV vars:
+
+```bash
+GHTOOL_TEAM="This can be set to team name to show access level to repository report"
+```
+
 ## Develop
 
 The lambda can be built and run locally by (this will ask for an MFA token):
