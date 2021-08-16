@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
@@ -112,11 +111,9 @@ func (r report) store(session *session.Session) error {
 		return fmt.Errorf("failed to open file %q, %v", r.filePath, err)
 	}
 
-	objectName := fmt.Sprintf("report-%s.csv", time.Now().Format(time.RFC3339))
-
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String(objectName),
+		Key:    aws.String("github_admin_report.csv"),
 		Body:   f,
 	})
 	if err != nil {
