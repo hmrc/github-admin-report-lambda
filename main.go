@@ -113,7 +113,7 @@ func (r report) store(session *session.Session) error {
 
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String("github-admin-report.csv"),
+		Key:    aws.String("github_admin_report.csv"),
 		Body:   f,
 	})
 	if err != nil {
