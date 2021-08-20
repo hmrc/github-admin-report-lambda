@@ -84,7 +84,7 @@ local_run: build-rie
 .PHONY: show_test_cover
 show_test_cover:
 	@$(DOCKER) go test -coverprofile /tmp/cover.out
-	@$(DOCKER) go tool cover -html=/tmp/cover.out
+	@$(DOCKER) go tool cover -func=/tmp/cover.out
 
 .PHONY: test_pr_check
 test_pr_check:
