@@ -71,6 +71,7 @@ local_run: build-rie
 		--env BUCKET_NAME \
 		--env GHTOOL_DRY_RUN \
 		--env GHTOOL_FILE_PATH \
+		--env GHTOOL_FILE_TYPE \
 		--env GHTOOL_ORG \
 		--env GHTOOL_TEAM \
 		--env TOKEN_PATH \
