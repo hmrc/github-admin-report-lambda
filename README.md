@@ -17,7 +17,7 @@ The Lambda requires the following to be setup:
 * A secure string SSM parameter to be setup containing the github token.  The name of this token must be added to the ENV vars.
 * A S3 bucket to store the report.  The name of this bucket must be added to the ENV vars.
 
-The Lambda will temporarily store the report (in CSV format) before uploading to S3 bucket.  Lambdas can only store at `/tmp` so the filepath ENV var needs to be set to reflect this.
+The Lambda will temporarily store the report (in JSON format) before uploading to S3 bucket.  Lambdas can only store at `/tmp` so the filepath ENV var needs to be set to reflect this.  You can also run reports in CSV format by changing `GHTOOL_FILE_TYPE=csv`.
 
 ## Environment variables
 
@@ -26,7 +26,8 @@ The following ENV vars can be passed to the Lambda.
 ```bash
 BUCKET_NAME=bucket-name-where-report-to-be-stored
 GHTOOL_DRY_RUN=true-or-false
-GHTOOL_FILE_PATH=/tmp/some-filename.csv
+GHTOOL_FILE_PATH=/tmp/some-filename.json
+GHTOOL_FILE_TYPE=json
 GHTOOL_ORG=github-org-name
 TOKEN_PATH=name-of-ssm-param-to-be-called
 ```

@@ -71,6 +71,7 @@ local_run: build-rie
 		--env BUCKET_NAME \
 		--env GHTOOL_DRY_RUN \
 		--env GHTOOL_FILE_PATH \
+		--env GHTOOL_FILE_TYPE \
 		--env GHTOOL_ORG \
 		--env GHTOOL_TEAM \
 		--env TOKEN_PATH \
@@ -83,7 +84,7 @@ local_run: build-rie
 .PHONY: show_test_cover
 show_test_cover:
 	@$(DOCKER) go test -coverprofile /tmp/cover.out
-	@$(DOCKER) go tool cover -func=/tmp/cover.out
+	@$(DOCKER) go tool cover -html=/tmp/cover.out
 
 .PHONY: test_pr_check
 test_pr_check:

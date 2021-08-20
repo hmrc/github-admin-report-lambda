@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -52,6 +53,7 @@ type report struct {
 	bucketName      string
 	dryRun          bool
 	filePath        string
+	fileType        string
 }
 
 func (r *report) setup(session *session.Session) error {
@@ -69,6 +71,12 @@ func (r *report) setup(session *session.Session) error {
 	r.filePath = os.Getenv("GHTOOL_FILE_PATH")
 	if r.filePath == "" {
 		return errors.New("file path not set")
+	}
+
+	r.fileType = os.Getenv("GHTOOL_FILE_TYPE")
+	re := regexp.MustCompile(`^(csv|json)$`)
+	if r.fileType == "" || !re.Match([]byte(r.fileType)) {
+		return errors.New("file type not set to csv or json")
 	}
 
 	token, err := r.parameterGetter.getParameter(
@@ -91,6 +99,7 @@ func (r report) generate() error {
 		"report",
 		fmt.Sprintf("--dry-run=%t", r.dryRun),
 		fmt.Sprintf("--file-path=%s", r.filePath),
+		fmt.Sprintf("--file-type=%s", r.fileType),
 	}
 	output, err := r.executor.run("/github-admin-tool", args...)
 	if err != nil {
@@ -113,7 +122,7 @@ func (r report) store(session *session.Session) error {
 
 	result, err := r.uploader.upload(session, &s3manager.UploadInput{
 		Bucket: aws.String(r.bucketName),
-		Key:    aws.String("github_admin_report.csv"),
+		Key:    aws.String(fmt.Sprintf("github_admin_report.%s", r.fileType)),
 		Body:   f,
 	})
 	if err != nil {

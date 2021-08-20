@@ -29,10 +29,15 @@ func Test_runReport(t *testing.T) {
 		if _, exists := os.LookupEnv("GHTOOL_FILE_PATH"); exists {
 			os.Setenv("GHTOOL_FILE_PATH", os.Getenv("GHTOOL_FILE_PATH"))
 		}
+
+		if _, exists := os.LookupEnv("GHTOOL_FILE_TYPE"); exists {
+			os.Setenv("GHTOOL_FILE_TYPE", os.Getenv("GHTOOL_FILE_TYPE"))
+		}
 	}()
 	os.Setenv("BUCKET_NAME", "some-bucket-name")
 	os.Setenv("GHTOOL_DRY_RUN", "false")
 	os.Setenv("GHTOOL_FILE_PATH", "/tmp/report.csv")
+	os.Setenv("GHTOOL_FILE_TYPE", "csv")
 	type args struct {
 		s *session.Session
 		r report
@@ -43,6 +48,7 @@ func Test_runReport(t *testing.T) {
 		wantErr       bool
 		wantErrMsg    string
 		setDryRunTrue bool
+		setFileType   string
 	}{
 		{
 			name: "runReport success",
@@ -102,11 +108,28 @@ func Test_runReport(t *testing.T) {
 			wantErr:    true,
 			wantErrMsg: "store error: failed to upload file, fail",
 		},
+		{
+			name: "runReport file type failure",
+			args: args{
+				r: report{
+					executor:        testExecutor{},
+					parameterGetter: testParameterGetter{},
+					uploader:        &testUploader{},
+				},
+			},
+			setFileType: "sdfsd",
+			wantErr:     true,
+			wantErrMsg:  "setup error: file type not set to csv or json",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setDryRunTrue {
 				os.Setenv("GHTOOL_DRY_RUN", "true")
+			}
+
+			if tt.setFileType != "" {
+				os.Setenv("GHTOOL_FILE_TYPE", tt.setFileType)
 			}
 
 			err := runReport(&tt.args.r, tt.args.s)
@@ -336,6 +359,7 @@ func TestReport_setup(t *testing.T) {
 		setEnvBucket     string
 		setEnvDryRun     string
 		setFilePath      string
+		setFileType      string
 		wantReportDryRun bool
 		wantErr          bool
 		wantErrMsg       string
@@ -354,6 +378,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "true",
 			setFilePath:      "some-file-path",
+			setFileType:      "json",
 			wantReportDryRun: true,
 			wantErr:          false,
 		},
@@ -371,6 +396,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "true",
 			setFilePath:      "some-file-path",
+			setFileType:      "json",
 			wantReportDryRun: true,
 			wantErr:          true,
 			wantErrMsg:       "get SSM param failed fail",
@@ -428,6 +454,7 @@ func TestReport_setup(t *testing.T) {
 			setEnvBucket:     "some-bucket-id",
 			setEnvDryRun:     "",
 			setFilePath:      "some-file-path",
+			setFileType:      "json",
 			wantReportDryRun: true,
 			wantErr:          false,
 			args: args{
@@ -440,10 +467,12 @@ func TestReport_setup(t *testing.T) {
 			os.Unsetenv("BUCKET_NAME")
 			os.Unsetenv("GHTOOL_DRY_RUN")
 			os.Unsetenv("GHTOOL_FILE_PATH")
+			os.Unsetenv("GHTOOL_FILE_TYPE")
 			if tt.setEnvVar {
 				os.Setenv("BUCKET_NAME", tt.setEnvBucket)
 				os.Setenv("GHTOOL_DRY_RUN", tt.setEnvDryRun)
 				os.Setenv("GHTOOL_FILE_PATH", tt.setFilePath)
+				os.Setenv("GHTOOL_FILE_TYPE", tt.setFileType)
 			}
 
 			err := tt.r.setup(tt.args.session)
