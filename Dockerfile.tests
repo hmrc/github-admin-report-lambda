@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine3.14 as base
+FROM golang:1.17-alpine3.14 as base
 RUN apk add --no-cache \
     shadow~=4.8 \
     bash~=5.1
@@ -12,19 +12,15 @@ ARG home
 # create group and user to match permmisions of current who runs the build
 ARG workdir
 WORKDIR ${workdir}
-RUN groupmod -g 64 dialout \
-    && addgroup -S \
-    -g "${group_id}" \
-    union \
-    && groupmod -g 2999 ping \
-    && mkdir -p "${home}" \
-    && adduser -S \
-    -u "${user_id}" \
-    -h "${home}" \
-    -s "/bin/bash" \
-    -G union \
-    builder \
-    && chown -R builder:union "${workdir}"
+COPY . .
+
+RUN awk -F: '{print $3}' /etc/group | grep -x ${group_id} || \
+    addgroup -S -g "${group_id}" union
+RUN test -d "${home}" || mkdir -p "${home}"
+RUN awk -F: '{print $3}' /etc/passwd | grep -x ${user_id} || \
+    adduser -S -u "${user_id}" -h "${home}" -s "/bin/bash" -g ${group_id} builder
+RUN chown -R ${user_id}:${group_id} "${workdir}"
+
 FROM base AS gofmt
 ENTRYPOINT [ "/usr/local/go/bin/gofmt" ]
 
@@ -39,5 +35,5 @@ ENV GOLANGCI_LINT_VERSION=1.41.1
 SHELL [ "/bin/bash", "-euo", "pipefail", "-c" ]
 RUN wget -qO- "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz" \
     | tar -xzv -C /bin --strip-components=1 "golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint"
-USER builder
+USER ${user_id}
 ENTRYPOINT [ "/bin/golangci-lint" ]
