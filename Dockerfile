@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine3.14 as build
+FROM golang:1.15-alpine3.14 as build
 # cache dependencies
 WORKDIR /app
 # cache dependencies
