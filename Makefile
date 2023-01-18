@@ -42,7 +42,7 @@ lint-check: golangci-lint
 .PHONY: build-image
 build-image:
 	go mod tidy
-	docker build -t github-admin-report --target distro .
+	docker build -t container-release:local --target distro .
 .PHONY: build-image
 
 .PHONY: build-rie
