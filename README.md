@@ -69,3 +69,15 @@ To tag and push the image to the production account github-admin-report ECR:
 ```bash
 make push-prod
 ```
+
+## CI/CD pipeline
+
+### Where can I find a CI/CD pipeline for this code base?
+
+- PR build job - None yet
+- [Deployment pipeline](https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines/github-admin-report/view?region=eu-west-2)
+
+### How is the CI/CD pipeline configured?
+
+- No PR build job is configured yet
+- Codepipeline pipeline config for deployment can be found in [platsec-terraform repo](https://github.com/hmrc/platsec-terraform/blob/main/components/github_admin_report/main.tf)
