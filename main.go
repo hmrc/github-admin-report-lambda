@@ -30,12 +30,28 @@ func HandleLambdaEvent() error {
 		session)
 }
 
+func retry(maxAttempts int, f func() error) (int, error) {
+	var err error
+	var attempts int
+
+	for i := 0; i < maxAttempts; i++ {
+		attempts = attempts + 1
+
+		err = f()
+		if err == nil {
+			break
+		}
+	}
+
+	return attempts, err
+}
+
 func runReport(r *report, session *session.Session) error {
 	if err := r.setup(session); err != nil {
 		return fmt.Errorf("setup error: %v", err)
 	}
 
-	if err := r.generate(); err != nil {
+	if _, err := retry(4, r.generate); err != nil {
 		return fmt.Errorf("generate error: %v", err)
 	}
 

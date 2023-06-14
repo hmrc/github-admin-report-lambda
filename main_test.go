@@ -12,6 +12,25 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
+func TestRetry(t *testing.T) {
+	r := report{
+		executor: testExecutor{runFail: true},
+		dryRun:   false,
+	}
+
+	attempts := 4
+	got, err := retry(attempts, r.generate)
+
+	expected := 4
+	if got != expected {
+		t.Errorf("expected: %d, got: %d", expected, got)
+	}
+
+	if err == nil {
+		t.Error("retry does not surface the error")
+	}
+}
+
 func Test_runReport(t *testing.T) {
 	f, _ := os.Create("/tmp/report.csv")
 	defer func() {
