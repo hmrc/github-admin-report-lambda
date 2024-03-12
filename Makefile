@@ -1,6 +1,8 @@
 DOCKER_LIST=$(shell docker ps -q)
 GIT_HASH=$(shell git rev-parse HEAD)
 
+GITHUB_ADMIN_TOOL_VERSION := v0.3.1
+
 DOCKER = docker run \
 	--interactive \
 	--rm \
@@ -42,12 +44,12 @@ lint-check: golangci-lint
 .PHONY: build-image
 build-image:
 	go mod tidy
-	docker build -t container-release:local --target distro .
+	docker build --build-arg "GITHUB_ADMIN_TOOL_VERSION=${GITHUB_ADMIN_TOOL_VERSION}" -t container-release:local --target distro .
 .PHONY: build-image
 
 .PHONY: build-rie
 build-rie:
-	docker build -t github-admin-report-rie --target rie .
+	docker build --build-arg "GITHUB_ADMIN_TOOL_VERSION=${GITHUB_ADMIN_TOOL_VERSION}" -t github-admin-report-rie --target rie .
 
 .PHONY: clean
 clean:
