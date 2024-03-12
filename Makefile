@@ -1,7 +1,7 @@
 DOCKER_LIST=$(shell docker ps -q)
 GIT_HASH=$(shell git rev-parse HEAD)
 
-GITHUB_ADMIN_TOOL_VERSION := v0.3.1
+GITHUB_ADMIN_TOOL_VERSION := v0.3.2
 
 DOCKER = docker run \
 	--interactive \
