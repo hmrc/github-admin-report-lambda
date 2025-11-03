@@ -25,14 +25,14 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s -extldflags "-static"' -o main
 
 # copy artifacts to a clean image
-FROM scratch AS distro
+FROM dockerhub.tax.service.gov.uk/scratch AS distro
 COPY --from=build /app/main /main
 COPY --from=build /app/github-admin-tool /github-admin-tool
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT [ "/main" ]
 WORKDIR /
 
-FROM distro AS rie
+FROM dockerhub.tax.service.gov.uk/distro AS rie
 COPY --from=build /app/aws-lambda-rie /aws-lambda-rie
 # creates /tmp for storing the report
 COPY --from=build /tmp /tmp
