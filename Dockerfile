@@ -1,4 +1,4 @@
-FROM dockerhub.tax.service.gov.uk/golang:1.15-alpine3.14 AS build
+FROM dockerhub.tax.service.gov.uk/golang:1.25.1-alpine3.22 AS build
 
 ARG GITHUB_ADMIN_TOOL_VERSION
 
@@ -25,7 +25,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s -extldflags "-static"' -o main
 
 # copy artifacts to a clean image
-FROM dockerhub.tax.service.gov.uk/scratch AS distro
+FROM scratch AS distro
 COPY --from=build /app/main /main
 COPY --from=build /app/github-admin-tool /github-admin-tool
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
