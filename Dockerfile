@@ -1,4 +1,4 @@
-FROM dockerhub.tax.service.gov.uk/golang:1.25.1-alpine3.22 AS build
+FROM dockerhub.tax.service.gov.uk/golang:1.15-alpine3.14 AS build
 
 ARG GITHUB_ADMIN_TOOL_VERSION
 
