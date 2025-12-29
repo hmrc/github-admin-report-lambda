@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine3.14 as build
+FROM dockerhub.tax.service.gov.uk/golang:1.15-alpine3.14 AS build
 
 ARG GITHUB_ADMIN_TOOL_VERSION
 
@@ -7,6 +7,7 @@ WORKDIR /app
 
 # cache dependencies
 COPY go.mod go.sum ./
+ENV GOPROXY="https://artefacts.tax.service.gov.uk/artifactory/go-packages/"
 RUN go mod download
 
 # install github-admin-tool
