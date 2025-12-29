@@ -27,6 +27,7 @@ ENTRYPOINT [ "/usr/local/go/bin/gofmt" ]
 FROM base AS go
 ENV CGO_ENABLED=0
 COPY go.mod go.sum ${workdir}/
+ENV GOPROXY="https://artefacts.tax.service.gov.uk/artifactory/go-packages/"
 RUN go mod download
 ENTRYPOINT [ "/usr/local/go/bin/go" ]
 

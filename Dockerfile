@@ -7,6 +7,7 @@ WORKDIR /app
 
 # cache dependencies
 COPY go.mod go.sum ./
+ENV GOPROXY="https://artefacts.tax.service.gov.uk/artifactory/go-packages/"
 RUN go mod download
 
 # install github-admin-tool
