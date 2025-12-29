@@ -74,10 +74,10 @@ make push-prod
 
 ### Where can I find a CI/CD pipeline for this code base?
 
-- PR build job - None yet
+- [PR build job](https://build.tax.service.gov.uk/job/platform-security/job/github-admin-report-lambda-pr-builder/)
 - [Deployment pipeline](https://eu-west-2.console.aws.amazon.com/codesuite/codepipeline/pipelines/github-admin-report/view?region=eu-west-2)
 
 ### How is the CI/CD pipeline configured?
 
-- No PR build job is configured yet
+- PR build job is configured in [build-jobs](https://github.com/hmrc/build-jobs/blob/main/jobs/live/platsec.groovy)
 - Codepipeline pipeline config for deployment can be found in [platsec-terraform repo](https://github.com/hmrc/platsec-terraform/blob/main/components/github_admin_report/main.tf)
